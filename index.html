@@ -366,7 +366,7 @@
         
         <div class="input-group">
             <label>您的單位/職稱</label>
-            <input type="text" id="sender-input" placeholder="例如：行政處" value="行政處">
+            <input type="text" id="sender-input" placeholder="例如：行政處" value="">
         </div>
 
         <div class="input-group">
@@ -619,7 +619,18 @@
         function sendMessage() {
             const sender = document.getElementById('sender-input').value.trim();
             const text = document.getElementById('text-input').value.trim();
-            if (text && DYNAMIC_TOPIC) {
+
+            if (!sender) {
+                alert("您的單位/職稱為空白");
+                return;
+            }
+
+            if (!text) {
+                alert("您的提示訊息為空白");
+                return;
+            }
+
+            if (DYNAMIC_TOPIC) {
                 const payload = JSON.stringify({ sender: sender, text: text });
                 client.publish(DYNAMIC_TOPIC, payload);
             }
