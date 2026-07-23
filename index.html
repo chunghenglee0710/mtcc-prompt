@@ -29,7 +29,7 @@
         
         .room-box { background: #2c2c2e; padding: 16px; border-radius: 16px; width: 100%; max-width: 360px; border: 1px solid #38383a; margin-bottom: 2px; }
         .room-box label { display: block; font-size: 14px; color: #ffd60a; margin-bottom: 8px; font-weight: bold; }
-        .room-box input { width: 100%; padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #007aff; background: #1c1c1e; color: #fff; text-align: center; letter-spacing: 2px; }
+        .room-box input { width: 100%; padding: 12px; font-size: 16px; border-radius: 10px; border: 1px solid #007aff; background: #1c1c1e; color: #fff; text-align: center; letter-spacing: 2px; }
 
         /* 資安警語告示牌 */
         .security-notice {
@@ -314,7 +314,8 @@
 
         <div class="room-box">
             <label>🔑 頻道安全密碼</label>
-            <input type="text" id="room-key" value="" placeholder="請輸入頻道安全密碼..." maxlength="20">
+            <!-- 限制只能輸入數字且最多 10 位 -->
+            <input type="tel" id="room-key" value="" placeholder="請輸入10位數頻道安全密碼..." maxlength="10" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
         </div>
         
         <!-- 資安注意事項告示 -->
@@ -453,12 +454,22 @@
             document.getElementById('disclaimer-modal').style.display = 'none';
         }
 
+        /* --- 頻道安全密碼驗證邏輯 --- */
         function getSecureTopic() {
             const keyInput = document.getElementById('room-key').value.trim();
+            
+            // 1. 檢查是否空白
             if (!keyInput) {
-                alert("頻道安全密碼為空白，請輸入。");
+                alert("請輸入10位數頻道安全密碼");
                 return null;
             }
+
+            // 2. 檢查是否非數字或長度不符合 10 位數
+            if (!/^\d{10}$/.test(keyInput)) {
+                alert("頻道安全密碼只能輸入10個數字");
+                return null;
+            }
+
             return `matsu_parliament_prompt_2026_${keyInput}`;
         }
 
