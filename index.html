@@ -81,6 +81,8 @@
             border-radius: 18px;
             max-width: 420px;
             width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
             padding: 24px;
             text-align: left;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
@@ -104,6 +106,28 @@
         .modal-body strong {
             color: #fff;
         }
+        
+        /* 快速分享圖片區塊 */
+        .share-qr-container {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #38383a;
+            text-align: center;
+        }
+        .share-qr-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #30d158;
+            margin-bottom: 10px;
+        }
+        .share-qr-img {
+            width: 180px;
+            height: 180px;
+            border-radius: 12px;
+            border: 1px solid #48484a;
+            background: #000;
+        }
+
         .close-btn {
             position: absolute;
             top: 16px;
@@ -284,6 +308,12 @@
                 <p><strong>開發目的：</strong>本系統為作者宗恆個人運用 AI 技術開發之輔助工具，僅供便捷短時間提示使用。</p>
                 <p><strong>資安與風險提醒：</strong>本系統未經過完整資安與系統開發規劃，使用者須自行承擔資訊安全及相關運作風險；開發者不承擔任何因使用本系統所致之損害或法律責任。</p>
                 <p><strong>開源與部署須知：</strong>本系統無版權限制，歡迎自由下載使用。請下載後另建伺服器空間部署，請勿直接使用開發者之 GitHub 環境，以避免資料混淆與資源衝突。</p>
+                
+                <!-- 快速分享區塊 -->
+                <div class="share-qr-container">
+                    <div class="share-qr-title">快速分享</div>
+                    <img src="mtcc-prompt.png" alt="快速分享 QR Code" class="share-qr-img">
+                </div>
             </div>
         </div>
     </div>
