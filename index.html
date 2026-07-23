@@ -50,27 +50,6 @@
         .btn-display { background: #007aff; }
         .btn-control { background: #34c759; }
 
-        /* 首頁快速分享圖片區塊 */
-        .home-share-container {
-            margin-top: 5px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-        }
-        .home-share-title {
-            font-size: 13px;
-            font-weight: bold;
-            color: #30d158;
-        }
-        .home-share-img {
-            width: 140px;
-            height: 140px;
-            border-radius: 12px;
-            border: 1px solid #38383a;
-            background: #000;
-        }
-
         /* 免責聲明觸發按鈕 */
         .disclaimer-link {
             font-size: 13px;
@@ -79,6 +58,16 @@
             cursor: pointer;
             margin-top: 4px;
             padding: 5px;
+        }
+
+        /* 首頁 QR Code 圖片區塊（免責聲明連結下方） */
+        .home-share-img {
+            width: 140px;
+            height: 140px;
+            border-radius: 12px;
+            border: 1px solid #38383a;
+            background: #000;
+            margin-top: 4px;
         }
 
         /* 免責聲明浮動視窗 (Modal) */
@@ -293,14 +282,11 @@
         <button class="mode-btn btn-display" onclick="startDisplay()">長官（顯示端）</button>
         <button class="mode-btn btn-control" onclick="startControl()">幕僚（控制端）</button>
 
-        <!-- 首頁快速分享區塊（免責聲明說明上方） -->
-        <div class="home-share-container">
-            <div class="home-share-title">快速分享</div>
-            <img src="mtcc-prompt.png" alt="快速分享 QR Code" class="home-share-img">
-        </div>
-
         <!-- 資安及版權免責聲明連結 -->
         <div class="disclaimer-link" onclick="openDisclaimer(event)">資安及版權免責聲明</div>
+
+        <!-- 首頁 QR Code 圖片（免責聲明連結下方） -->
+        <img src="mtcc-prompt.png" alt="QR Code" class="home-share-img">
     </div>
 
     <!-- 免責聲明浮動視窗 (Modal) -->
