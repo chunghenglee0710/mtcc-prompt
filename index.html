@@ -360,12 +360,13 @@
             <div id="message-box">等待訊息輸入...</div>
         </div>
 
-        <!-- 左下角按鈕組：遮蔽按鈕 + 最新提示按鈕 + 讚 / 倒讚 -->
+        <!-- 左下角按鈕組：遮蔽按鈕 + 最新提示按鈕 + 讚 + 倒讚 + 全螢幕切換按鈕 -->
         <div class="bottom-left-controls">
             <button class="display-ctrl-btn" id="mask-toggle-btn" onclick="toggleMask()">遮蔽OFF</button>
             <button class="display-ctrl-btn latest-btn" onclick="jumpToLatest()">最新提示</button>
             <button class="display-ctrl-btn feedback-btn" onclick="sendFeedback('like')" title="讚">👍</button>
             <button class="display-ctrl-btn feedback-btn" onclick="sendFeedback('dislike')" title="倒讚">👎</button>
+            <button class="display-ctrl-btn" id="fullscreen-toggle-btn" onclick="toggleFullscreen()">全螢幕</button>
         </div>
 
         <button class="nav-btn nav-left" onclick="navigateHistory(-1)">❮</button>
@@ -519,6 +520,34 @@
                 client.publish(DYNAMIC_TOPIC, payload);
             }
         }
+
+        /* --- 全螢幕切換邏輯 --- */
+        function toggleFullscreen() {
+            const btn = document.getElementById('fullscreen-toggle-btn');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    btn.innerText = '恢復視窗化';
+                }).catch(err => {
+                    console.error("無法切換至全螢幕模式:", err);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().then(() => {
+                        btn.innerText = '全螢幕';
+                    });
+                }
+            }
+        }
+
+        // 監聽手動退出全螢幕（例如按 ESC 鍵）同步更新按鈕文字
+        document.addEventListener('fullscreenchange', () => {
+            const btn = document.getElementById('fullscreen-toggle-btn');
+            if (!document.fullscreenElement) {
+                btn.innerText = '全螢幕';
+            } else {
+                btn.innerText = '恢復視窗化';
+            }
+        });
 
         function toggleMask() {
             isMasked = !isMasked;
