@@ -82,7 +82,7 @@
             bottom: calc(60px + env(safe-area-inset-bottom));
             left: 24px;
             display: flex;
-            gap: 12px;
+            gap: 10px;
             z-index: 20;
         }
 
@@ -91,7 +91,7 @@
             background: rgba(44, 44, 46, 0.85);
             color: #ffffff;
             border: 1.5px solid rgba(255, 255, 255, 0.4);
-            padding: 12px 20px;
+            padding: 12px 18px;
             border-radius: 14px;
             font-size: 18px;
             font-weight: bold;
@@ -99,6 +99,9 @@
             backdrop-filter: blur(10px);
             transition: 0.2s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .display-ctrl-btn:active { opacity: 0.7; }
 
@@ -116,13 +119,19 @@
             color: #30d158;
         }
 
+        /* 反饋手勢按鈕樣式 */
+        .feedback-btn {
+            font-size: 20px;
+            padding: 12px 16px;
+        }
+
         /* 左右切換按鈕輔助 */
         .nav-btn { position: absolute; top: 45%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: white; border: none; font-size: 30px; width: 50px; height: 80px; border-radius: 10px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 5; }
         .nav-left { left: 10px; }
         .nav-right { right: 10px; }
 
         /* 3. 幕僚控制端 */
-        #control-view { display: none; padding: 20px; max-width: 600px; margin: 0 auto; color: #f2f2f7; background: #1c1c1e; height: 100vh; overflow-y: auto; }
+        #control-view { display: none; padding: 20px; max-width: 600px; margin: 0 auto; color: #f2f2f7; background: #1c1c1e; height: 100vh; overflow-y: auto; position: relative; transition: border 0.2s, box-shadow 0.2s; border: 8px solid transparent; }
         .control-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; text-align: center; color: #fff; line-height: 1.3; }
         .input-group { margin-bottom: 12px; }
         label { font-size: 14px; color: #8e8e93; display: block; margin-bottom: 5px; }
@@ -133,6 +142,27 @@
         .send-btn { width: 100%; padding: 16px; font-size: 22px; font-weight: bold; background: #30d158; color: white; border: none; border-radius: 10px; cursor: pointer; margin-bottom: 8px; }
         .clear-btn { background: #ff453a; }
         .status-tag { text-align: center; font-size: 13px; color: #30d158; margin-bottom: 10px; }
+
+        /* 反饋燈光效果 (套用於 control-view) */
+        @keyframes flash-green {
+            0%, 100% { border-color: transparent; box-shadow: none; }
+            50% { border-color: #30d158; box-shadow: inset 0 0 20px #30d158, 0 0 20px #30d158; }
+        }
+        @keyframes flash-red {
+            0%, 100% { border-color: transparent; box-shadow: none; }
+            50% { border-color: #ff453a; box-shadow: inset 0 0 20px #ff453a, 0 0 20px #ff453a; }
+        }
+
+        .border-flash-green {
+            animation: flash-green 0.6s ease-in-out infinite;
+        }
+        .border-flash-red {
+            animation: flash-red 0.6s ease-in-out infinite;
+        }
+        .border-solid-red {
+            border-color: #ff453a !important;
+            box-shadow: inset 0 0 20px #ff453a, 0 0 20px #ff453a !important;
+        }
 
         /* 快捷詞區塊 Header 與按鈕 */
         .presets-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #38383a; padding-top: 15px; }
@@ -182,10 +212,12 @@
             <div id="message-box">等待訊息輸入...</div>
         </div>
 
-        <!-- 左下角按鈕組：遮蔽按鈕 + 最新提示按鈕 -->
+        <!-- 左下角按鈕組：遮蔽按鈕 + 最新提示按鈕 + 讚 / 倒讚 -->
         <div class="bottom-left-controls">
             <button class="display-ctrl-btn" id="mask-toggle-btn" onclick="toggleMask()">遮蔽OFF</button>
             <button class="display-ctrl-btn latest-btn" onclick="jumpToLatest()">最新提示</button>
+            <button class="display-ctrl-btn feedback-btn" onclick="sendFeedback('like')" title="讚">👍</button>
+            <button class="display-ctrl-btn feedback-btn" onclick="sendFeedback('dislike')" title="倒讚">👎</button>
         </div>
 
         <button class="nav-btn nav-left" onclick="navigateHistory(-1)">❮</button>
@@ -247,6 +279,7 @@
 
         let myPresets = [...systemDefaultPresets];
         let isEditing = false;
+        let feedbackTimer = null; // 控制端燈光計時器
 
         function getSecureTopic() {
             const keyInput = document.getElementById('room-key').value.trim() || 'matsu2026';
@@ -267,6 +300,9 @@
                 try {
                     const data = JSON.parse(payload.toString());
                     
+                    // 忽略純反饋訊號
+                    if (data.type === 'feedback') return;
+
                     if (data.text === '') {
                         historyList = [];
                         currentIndex = -1;
@@ -288,6 +324,14 @@
             });
 
             setupTouchEvents();
+        }
+
+        // 發送讚/倒讚反饋
+        function sendFeedback(type) {
+            if (DYNAMIC_TOPIC) {
+                const payload = JSON.stringify({ type: 'feedback', action: type });
+                client.publish(DYNAMIC_TOPIC, payload);
+            }
         }
 
         // 遮蔽切換功能
@@ -377,7 +421,7 @@
             }
         }
 
-        /* --- 幕僚端邏輯 --- */
+        /* --- 幕僚控制端邏輯 --- */
         function startControl() {
             DYNAMIC_TOPIC = getSecureTopic();
 
@@ -387,8 +431,48 @@
             const keyText = document.getElementById('room-key').value.trim() || 'matsu2026';
             document.getElementById('status').innerText = `● 雲端邏輯隔離通道已連線 [金鑰: ${keyText}]`;
 
+            // 訂閱頻道以接收長官反饋
+            client.subscribe(DYNAMIC_TOPIC);
+            client.on('message', (topic, payload) => {
+                if (topic !== DYNAMIC_TOPIC) return;
+                try {
+                    const data = JSON.parse(payload.toString());
+                    if (data.type === 'feedback') {
+                        handleFeedbackEffect(data.action);
+                    }
+                } catch(e) {}
+            });
+
             loadPresetsFromStorage();
             renderPresets();
+        }
+
+        // 幕僚端燈光動畫處理邏輯
+        function handleFeedbackEffect(action) {
+            const ctrlView = document.getElementById('control-view');
+            
+            // 清除過往未完成的計時動畫
+            if (feedbackTimer) clearTimeout(feedbackTimer);
+            ctrlView.classList.remove('border-flash-green', 'border-flash-red', 'border-solid-red');
+
+            if (action === 'like') {
+                // 按讚：綠色閃爍 3 秒後恢復
+                ctrlView.classList.add('border-flash-green');
+                feedbackTimer = setTimeout(() => {
+                    ctrlView.classList.remove('border-flash-green');
+                }, 3000);
+            } else if (action === 'dislike') {
+                // 倒讚：紅色閃爍 3 秒 -> 紅框維持 10 秒 -> 恢復
+                ctrlView.classList.add('border-flash-red');
+                feedbackTimer = setTimeout(() => {
+                    ctrlView.classList.remove('border-flash-red');
+                    ctrlView.classList.add('border-solid-red');
+                    
+                    feedbackTimer = setTimeout(() => {
+                        ctrlView.classList.remove('border-solid-red');
+                    }, 10000);
+                }, 3000);
+            }
         }
 
         function updateCharCount() {
