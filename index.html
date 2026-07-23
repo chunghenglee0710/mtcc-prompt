@@ -314,7 +314,7 @@
 
         <div class="room-box">
             <label>🔑 頻道安全密碼</label>
-            <input type="text" id="room-key" value="matsu2026" placeholder="請輸入動態密碼" maxlength="20">
+            <input type="text" id="room-key" value="" placeholder="請輸入頻道安全密碼..." maxlength="20">
         </div>
         
         <!-- 資安注意事項告示 -->
@@ -454,13 +454,18 @@
         }
 
         function getSecureTopic() {
-            const keyInput = document.getElementById('room-key').value.trim() || 'matsu2026';
+            const keyInput = document.getElementById('room-key').value.trim();
+            if (!keyInput) {
+                alert("頻道安全密碼為空白，請輸入。");
+                return null;
+            }
             return `matsu_parliament_prompt_2026_${keyInput}`;
         }
 
         /* --- 長官端邏輯 --- */
         function startDisplay() {
             DYNAMIC_TOPIC = getSecureTopic();
+            if (!DYNAMIC_TOPIC) return;
 
             document.getElementById('setup-view').style.display = 'none';
             document.getElementById('display-view').style.display = 'flex';
@@ -592,11 +597,12 @@
         /* --- 幕僚控制端邏輯 --- */
         function startControl() {
             DYNAMIC_TOPIC = getSecureTopic();
+            if (!DYNAMIC_TOPIC) return;
 
             document.getElementById('setup-view').style.display = 'none';
             document.getElementById('control-view').style.display = 'block';
             
-            const keyText = document.getElementById('room-key').value.trim() || 'matsu2026';
+            const keyText = document.getElementById('room-key').value.trim();
             document.getElementById('status').innerText = `● 雲端邏輯隔離通道已連線 [金鑰: ${keyText}]`;
 
             client.subscribe(DYNAMIC_TOPIC);
