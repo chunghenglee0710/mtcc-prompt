@@ -15,6 +15,10 @@
         .mode-selector h2 { font-size: 24px; font-weight: bold; color: #fff; line-height: 1.4; max-width: 500px; }
         .mode-selector p { font-size: 14px; color: #8e8e93; }
         
+        .room-box { background: #2c2c2e; padding: 18px; border-radius: 16px; width: 100%; max-width: 340px; border: 1px solid #38383a; margin-bottom: 5px; }
+        .room-box label { display: block; font-size: 14px; color: #ffd60a; margin-bottom: 8px; font-weight: bold; }
+        .room-box input { width: 100%; padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #007aff; background: #1c1c1e; color: #fff; text-align: center; letter-spacing: 2px; }
+
         /* 資安警語告示牌 */
         .security-notice {
             background: rgba(255, 69, 58, 0.15);
@@ -24,7 +28,7 @@
             max-width: 340px;
             width: 100%;
             text-align: left;
-            margin-bottom: 5px;
+            margin-bottom: 10px;
         }
         .security-notice-title {
             color: #ff453a;
@@ -41,10 +45,6 @@
             line-height: 1.5;
             opacity: 0.9;
         }
-
-        .room-box { background: #2c2c2e; padding: 18px; border-radius: 16px; width: 100%; max-width: 340px; border: 1px solid #38383a; margin-bottom: 5px; }
-        .room-box label { display: block; font-size: 14px; color: #ffd60a; margin-bottom: 8px; font-weight: bold; }
-        .room-box input { width: 100%; padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #007aff; background: #1c1c1e; color: #fff; text-align: center; letter-spacing: 2px; }
 
         .mode-btn { width: 100%; max-width: 340px; padding: 18px; font-size: 20px; font-weight: bold; cursor: pointer; border: none; border-radius: 14px; color: white; transition: 0.2s; text-align: center; }
         .btn-display { background: #007aff; }
@@ -183,18 +183,18 @@
     <div id="setup-view" class="mode-selector">
         <h2>連江縣政府行政處<br>議會質詢即時提示系統</h2>
         <p>請設定今日連線安全金鑰並注意使用規範</p>
+
+        <div class="room-box">
+            <label>🔑 頻道安全密碼 (當天需一致)</label>
+            <input type="text" id="room-key" value="matsu2026" placeholder="請輸入動態密碼" maxlength="20">
+        </div>
         
-        <!-- 資安注意事項告示 -->
+        <!-- 資安注意事項告示（已移動至密碼區塊下方） -->
         <div class="security-notice">
             <div class="security-notice-title">⚠️ 資安注意事項</div>
             <div class="security-notice-text">
                 本系統為公開系統，採用簡易的邏輯隔離，無實質點對點加密，請勿發送帶有機敏性訊息以防止竊聽。
             </div>
-        </div>
-
-        <div class="room-box">
-            <label>🔑 頻道安全密碼 (當天需一致)</label>
-            <input type="text" id="room-key" value="matsu2026" placeholder="請輸入動態密碼" maxlength="20">
         </div>
 
         <button class="mode-btn btn-display" onclick="startDisplay()">長官（顯示端）</button>
@@ -300,7 +300,6 @@
                 try {
                     const data = JSON.parse(payload.toString());
                     
-                    // 忽略純反饋訊號
                     if (data.type === 'feedback') return;
 
                     if (data.text === '') {
@@ -326,7 +325,6 @@
             setupTouchEvents();
         }
 
-        // 發送讚/倒讚反饋
         function sendFeedback(type) {
             if (DYNAMIC_TOPIC) {
                 const payload = JSON.stringify({ type: 'feedback', action: type });
@@ -334,7 +332,6 @@
             }
         }
 
-        // 遮蔽切換功能
         function toggleMask() {
             isMasked = !isMasked;
             const maskBtn = document.getElementById('mask-toggle-btn');
@@ -350,7 +347,6 @@
             updateDisplayView();
         }
 
-        // 一鍵切換至最新一筆提示
         function jumpToLatest() {
             if (historyList.length > 0) {
                 currentIndex = historyList.length - 1;
@@ -431,7 +427,6 @@
             const keyText = document.getElementById('room-key').value.trim() || 'matsu2026';
             document.getElementById('status').innerText = `● 雲端邏輯隔離通道已連線 [金鑰: ${keyText}]`;
 
-            // 訂閱頻道以接收長官反饋
             client.subscribe(DYNAMIC_TOPIC);
             client.on('message', (topic, payload) => {
                 if (topic !== DYNAMIC_TOPIC) return;
@@ -447,22 +442,18 @@
             renderPresets();
         }
 
-        // 幕僚端燈光動畫處理邏輯
         function handleFeedbackEffect(action) {
             const ctrlView = document.getElementById('control-view');
             
-            // 清除過往未完成的計時動畫
             if (feedbackTimer) clearTimeout(feedbackTimer);
             ctrlView.classList.remove('border-flash-green', 'border-flash-red', 'border-solid-red');
 
             if (action === 'like') {
-                // 按讚：綠色閃爍 3 秒後恢復
                 ctrlView.classList.add('border-flash-green');
                 feedbackTimer = setTimeout(() => {
                     ctrlView.classList.remove('border-flash-green');
                 }, 3000);
             } else if (action === 'dislike') {
-                // 倒讚：紅色閃爍 3 秒 -> 紅框維持 10 秒 -> 恢復
                 ctrlView.classList.add('border-flash-red');
                 feedbackTimer = setTimeout(() => {
                     ctrlView.classList.remove('border-flash-red');
