@@ -76,29 +76,44 @@
             font-size: 10vw !important;
         }
 
-        /* 左下角遮蔽切換按鈕（已上移並適應 iOS 安全區域） */
-        .mask-btn {
+        /* 左下角按鈕群組容器 */
+        .bottom-left-controls {
             position: absolute;
             bottom: calc(60px + env(safe-area-inset-bottom));
             left: 24px;
+            display: flex;
+            gap: 12px;
+            z-index: 20;
+        }
+
+        /* 控制按鈕通用樣式 */
+        .display-ctrl-btn {
             background: rgba(44, 44, 46, 0.85);
             color: #ffffff;
             border: 1.5px solid rgba(255, 255, 255, 0.4);
-            padding: 12px 22px;
+            padding: 12px 20px;
             border-radius: 14px;
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            z-index: 20;
             backdrop-filter: blur(10px);
             transition: 0.2s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
-        .mask-btn:active { opacity: 0.7; }
-        .mask-btn.active-mask {
+        .display-ctrl-btn:active { opacity: 0.7; }
+
+        /* 遮蔽開啟樣式 */
+        .display-ctrl-btn.active-mask {
             border-color: #ff453a;
             color: #ff453a;
             background: rgba(255, 69, 58, 0.25);
+        }
+
+        /* 最新提示按鈕專用樣式 */
+        .latest-btn {
+            background: rgba(0, 122, 255, 0.25);
+            border-color: #007aff;
+            color: #30d158;
         }
 
         /* 左右切換按鈕輔助 */
@@ -167,8 +182,11 @@
             <div id="message-box">等待訊息輸入...</div>
         </div>
 
-        <!-- 左下角遮蔽切換按鈕 -->
-        <button class="mask-btn" id="mask-toggle-btn" onclick="toggleMask()">遮蔽OFF</button>
+        <!-- 左下角按鈕組：遮蔽按鈕 + 最新提示按鈕 -->
+        <div class="bottom-left-controls">
+            <button class="display-ctrl-btn" id="mask-toggle-btn" onclick="toggleMask()">遮蔽OFF</button>
+            <button class="display-ctrl-btn latest-btn" onclick="jumpToLatest()">最新提示</button>
+        </div>
 
         <button class="nav-btn nav-left" onclick="navigateHistory(-1)">❮</button>
         <button class="nav-btn nav-right" onclick="navigateHistory(1)">❯</button>
@@ -286,6 +304,14 @@
             }
 
             updateDisplayView();
+        }
+
+        // 一鍵切換至最新一筆提示
+        function jumpToLatest() {
+            if (historyList.length > 0) {
+                currentIndex = historyList.length - 1;
+                updateDisplayView();
+            }
         }
 
         function updateDisplayView() {
