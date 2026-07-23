@@ -51,7 +51,7 @@
         .btn-control { background: #34c759; }
 
         /* 2. 長官顯示端 */
-        #display-view { display: none; width: 100vw; height: 100vh; background: #000; flex-direction: column; justify-content: space-between; align-items: center; padding: 2vh 2vw; text-align: center; position: relative; user-select: none; }
+        #display-view { display: none; width: 100vw; height: 100vh; background: #000; flex-direction: column; justify-content: space-between; align-items: center; padding: 2vh 2vw 10vh 2vw; text-align: center; position: relative; user-select: none; }
         .display-header { width: 100%; display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 20px; z-index: 5; }
         #sender-tag { font-size: 3.5vw; color: #ffd60a; font-weight: bold; }
         #history-counter { font-size: 2vw; color: #8e8e93; background: #1c1c1e; padding: 4px 14px; border-radius: 20px; }
@@ -76,32 +76,33 @@
             font-size: 10vw !important;
         }
 
-        /* 左下角遮蔽切換按鈕 */
+        /* 左下角遮蔽切換按鈕（已上移並適應 iOS 安全區域） */
         .mask-btn {
             position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(44, 44, 46, 0.8);
+            bottom: calc(60px + env(safe-area-inset-bottom));
+            left: 24px;
+            background: rgba(44, 44, 46, 0.85);
             color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 10px 18px;
-            border-radius: 12px;
-            font-size: 16px;
+            border: 1.5px solid rgba(255, 255, 255, 0.4);
+            padding: 12px 22px;
+            border-radius: 14px;
+            font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            z-index: 10;
+            z-index: 20;
             backdrop-filter: blur(10px);
             transition: 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
         .mask-btn:active { opacity: 0.7; }
         .mask-btn.active-mask {
             border-color: #ff453a;
             color: #ff453a;
-            background: rgba(255, 69, 58, 0.15);
+            background: rgba(255, 69, 58, 0.25);
         }
 
         /* 左右切換按鈕輔助 */
-        .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: white; border: none; font-size: 30px; width: 50px; height: 80px; border-radius: 10px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 5; }
+        .nav-btn { position: absolute; top: 45%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: white; border: none; font-size: 30px; width: 50px; height: 80px; border-radius: 10px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 5; }
         .nav-left { left: 10px; }
         .nav-right { right: 10px; }
 
@@ -284,7 +285,6 @@
                 maskBtn.classList.remove('active-mask');
             }
 
-            // 重新渲染畫面呈現
             updateDisplayView();
         }
 
@@ -304,7 +304,6 @@
             
             senderTag.innerText = sender ? `【${sender}】` : '';
             
-            // 若開啟遮蔽，內文替換為「遮蔽中」
             if (isMasked) {
                 messageBox.innerText = '遮蔽中';
                 messageBox.classList.add('masked-state');
