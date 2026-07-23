@@ -11,12 +11,14 @@
         body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; overflow: hidden; background-color: #000; color: #fff; touch-action: manipulation; }
         
         /* 選擇身份頁面 */
-        .mode-selector { display: flex; flex-direction: column; height: 100vh; justify-content: center; align-items: center; gap: 20px; background: #1c1c1e; padding: 20px; }
-        .mode-btn { width: 100%; max-width: 320px; padding: 20px; font-size: 22px; font-weight: bold; cursor: pointer; border: none; border-radius: 14px; color: white; transition: 0.2s; text-align: center; }
+        .mode-selector { display: flex; flex-direction: column; height: 100vh; justify-content: center; align-items: center; gap: 20px; background: #1c1c1e; padding: 20px; text-align: center; }
+        .mode-selector h2 { font-size: 26px; font-weight: bold; color: #fff; line-height: 1.4; max-width: 500px; }
+        .mode-selector p { font-size: 14px; color: #8e8e93; margin-bottom: 10px; }
+        .mode-btn { width: 100%; max-width: 340px; padding: 20px; font-size: 22px; font-weight: bold; cursor: pointer; border: none; border-radius: 14px; color: white; transition: 0.2s; text-align: center; }
         .btn-display { background: #007aff; }
         .btn-control { background: #34c759; }
 
-        /* 長官 iPad 顯示端 */
+        /* 長官平板顯示端 */
         #display-view { display: none; width: 100vw; height: 100vh; background: #000; flex-direction: column; justify-content: space-between; align-items: center; padding: 2vh 2vw; text-align: center; position: relative; user-select: none; }
         .display-header { width: 100%; display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 20px; }
         #sender-tag { font-size: 3.5vw; color: #ffd60a; font-weight: bold; }
@@ -43,7 +45,7 @@
 
         /* 主管控制端 */
         #control-view { display: none; padding: 20px; max-width: 600px; margin: 0 auto; color: #f2f2f7; background: #1c1c1e; height: 100vh; overflow-y: auto; }
-        .control-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; text-align: center; color: #fff; }
+        .control-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; text-align: center; color: #fff; line-height: 1.3; }
         .input-group { margin-bottom: 12px; }
         label { font-size: 14px; color: #8e8e93; display: block; margin-bottom: 5px; }
         input[type="text"] { width: 100%; padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #38383a; background: #2c2c2e; color: #fff; }
@@ -54,27 +56,30 @@
         .clear-btn { background: #ff453a; }
         .status-tag { text-align: center; font-size: 13px; color: #30d158; margin-bottom: 10px; }
 
-        /* 快捷詞編輯區 */
-        .presets-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 10px; border-top: 1px solid #38383a; padding-top: 15px; }
+        /* 快捷詞區塊 Header 與按鈕 */
+        .presets-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #38383a; padding-top: 15px; }
         .btn-group-right { display: flex; gap: 8px; }
         .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 30px; }
         .preset-btn { padding: 12px; font-size: 15px; background: #2c2c2e; border: 1px solid #38383a; border-radius: 8px; color: #fff; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
         .preset-btn:active { background: #007aff; }
         .edit-input { width: 100%; padding: 10px; font-size: 14px; background: #1c1c1e; border: 1px solid #007aff; border-radius: 8px; color: #fff; }
-        .toggle-edit-btn { background: #0a84ff; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 14px; cursor: pointer; }
-        .reset-btn { background: #636366; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 14px; cursor: pointer; display: none; }
+        
+        .action-btn { border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        .btn-edit { background: #0a84ff; color: white; }
+        .btn-reset { background: #48484a; color: #ff9f0a; }
     </style>
 </head>
 <body>
 
-    <!-- 1. 選擇身份 -->
+    <!-- 1. 選擇身份頁面 -->
     <div id="setup-view" class="mode-selector">
-        <h2 style="margin-bottom: 20px;">議會質詢即時提示系統</h2>
-        <button class="mode-btn btn-display" onclick="startDisplay()">長官 iPad（顯示端）</button>
+        <h2>連江縣政府行政處<br>議會質詢即時提示系統</h2>
+        <p>請選擇此設備之使用情境</p>
+        <button class="mode-btn btn-display" onclick="startDisplay()">長官平板（顯示端）</button>
         <button class="mode-btn btn-control" onclick="startControl()">主管/幕僚（控制端）</button>
     </div>
 
-    <!-- 2. 長官 iPad 顯示頁面 -->
+    <!-- 2. 長官平板顯示頁面 -->
     <div id="display-view">
         <div class="display-header">
             <div id="sender-tag"></div>
@@ -91,7 +96,7 @@
 
     <!-- 3. 主管控制頁面 -->
     <div id="control-view">
-        <div class="control-title">主管推播控制台</div>
+        <div class="control-title">連江縣政府行政處<br>議會質詢推播控制台</div>
         <div id="status" class="status-tag">雲端連線中...</div>
         
         <div class="input-group">
@@ -105,15 +110,15 @@
             <div class="char-count"><span id="char-num">0</span> / 50 字</div>
         </div>
 
-        <button class="send-btn" onclick="sendMessage()">立即傳送至長官螢幕</button>
-        <button class="send-btn clear-btn" onclick="clearMessage()">清空長官螢幕</button>
+        <button class="send-btn" onclick="sendMessage()">同步傳送至所有長官螢幕</button>
+        <button class="send-btn clear-btn" onclick="clearMessage()">清空所有長官螢幕</button>
 
         <!-- 常用 10 組快捷詞區塊 -->
         <div class="presets-header">
-            <span style="font-weight: bold;">自訂 10 組快捷詞：</span>
+            <span style="font-weight: bold; font-size: 15px;">自訂 10 組快捷詞：</span>
             <div class="btn-group-right">
-                <button class="reset-btn" id="reset-preset-btn" onclick="restoreDefaultPresets()">恢復預設</button>
-                <button class="toggle-edit-btn" id="edit-preset-btn" onclick="toggleEditPresets()">設定快捷詞</button>
+                <button class="action-btn btn-reset" onclick="restoreDefaultPresets()">一鍵恢復預設</button>
+                <button class="action-btn btn-edit" id="edit-preset-btn" onclick="toggleEditPresets()">編輯內容</button>
             </div>
         </div>
         <div class="preset-grid" id="preset-container"></div>
@@ -127,7 +132,7 @@
         let historyList = []; 
         let currentIndex = -1;
 
-        // 系統標準 10 組預設快捷詞
+        // 系統預設 10 組標準快捷詞
         const systemDefaultPresets = [
             "已交辦權責局處辦理",
             "預算已於本期編列",
@@ -141,13 +146,12 @@
             "相關數據會後補充"
         ];
 
-        // 當前使用中的快捷詞陣列
         let myPresets = [...systemDefaultPresets];
         let isEditing = false;
 
         client.on('connect', () => {
             if (document.getElementById('status')) {
-                document.getElementById('status').innerText = '● 雲端通訊連線正常';
+                document.getElementById('status').innerText = '● 雲端多端連線正常';
             }
         });
 
@@ -272,7 +276,7 @@
             client.publish(TOPIC, payload);
         }
 
-        /* --- 快捷詞管理與恢復預設 --- */
+        /* --- 快捷詞讀取與管理 --- */
         function loadPresetsFromStorage() {
             const saved = localStorage.getItem('matsu_parliament_presets_v2');
             if (saved) {
@@ -306,17 +310,13 @@
 
         function toggleEditPresets() {
             const editBtn = document.getElementById('edit-preset-btn');
-            const resetBtn = document.getElementById('reset-preset-btn');
             
             if (!isEditing) {
-                // 開啟編輯模式，顯示「恢復預設」按鈕
                 isEditing = true;
                 editBtn.innerText = '儲存快捷詞';
                 editBtn.style.background = '#30d158';
-                resetBtn.style.display = 'block';
                 renderPresets();
             } else {
-                // 讀取輸入內容並寫入記憶
                 for (let i = 0; i < 10; i++) {
                     const inputEl = document.getElementById(`preset-input-${i}`);
                     if (inputEl) {
@@ -327,18 +327,21 @@
                 localStorage.setItem('matsu_parliament_presets_v2', JSON.stringify(myPresets));
                 
                 isEditing = false;
-                editBtn.innerText = '設定快捷詞';
+                editBtn.innerText = '編輯內容';
                 editBtn.style.background = '#0a84ff';
-                resetBtn.style.display = 'none';
                 renderPresets();
             }
         }
 
-        // 一鍵恢復系統預設值
         function restoreDefaultPresets() {
-            if (confirm("確定要將 10 組快捷詞恢復為系統預設值嗎？")) {
+            if (confirm("確定要將 10 組快捷詞還原為系統預設值嗎？")) {
                 myPresets = [...systemDefaultPresets];
                 localStorage.setItem('matsu_parliament_presets_v2', JSON.stringify(myPresets));
+                if (isEditing) {
+                    isEditing = false;
+                    document.getElementById('edit-preset-btn').innerText = '編輯內容';
+                    document.getElementById('edit-preset-btn').style.background = '#0a84ff';
+                }
                 renderPresets();
             }
         }
