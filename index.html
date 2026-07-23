@@ -283,7 +283,7 @@
         /* 快捷詞區塊 */
         .presets-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #38383a; padding-top: 15px; }
         .btn-group-right { display: flex; gap: 8px; }
-        .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 30px; }
+        .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 25px; }
         .preset-btn { padding: 12px; font-size: 14px; background: #2c2c2e; border: 1px solid #38383a; border-radius: 8px; color: #fff; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
         .preset-btn:active { background: #007aff; }
         .edit-input { width: 100%; padding: 10px; font-size: 14px; background: #1c1c1e; border: 1px solid #007aff; border-radius: 8px; color: #fff; }
@@ -291,6 +291,18 @@
         .action-btn { border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
         .btn-edit { background: #0a84ff; color: white; }
         .btn-reset { background: #48484a; color: #ff9f0a; }
+
+        /* 幕僚歷史紀錄區塊 */
+        .history-section { margin-top: 25px; border-top: 1px solid #38383a; padding-top: 15px; margin-bottom: 30px; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .history-title { font-weight: bold; font-size: 15px; color: #fff; }
+        .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; }
+        .history-item { background: #2c2c2e; border: 1px solid #38383a; padding: 10px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .history-item-content { display: flex; flex-direction: column; gap: 2px; text-align: left; overflow: hidden; }
+        .history-item-sender { font-size: 12px; color: #ffd60a; font-weight: bold; }
+        .history-item-text { font-size: 14px; color: #fff; word-break: break-all; }
+        .history-item-time { font-size: 11px; color: #8e8e93; white-space: nowrap; flex-shrink: 0; }
+        .history-empty { font-size: 13px; color: #8e8e93; text-align: center; padding: 15px 0; }
     </style>
 </head>
 <body>
@@ -387,6 +399,17 @@
             </div>
         </div>
         <div class="preset-grid" id="preset-container"></div>
+
+        <!-- 幕僚發送紀錄歷史區塊 -->
+        <div class="history-section">
+            <div class="history-header">
+                <span class="history-title">傳送訊息歷史紀錄：</span>
+                <button class="action-btn btn-reset" onclick="clearSentHistory()">清空歷史</button>
+            </div>
+            <div class="history-list" id="sent-history-container">
+                <div class="history-empty">尚無傳送紀錄</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -397,6 +420,9 @@
         let historyList = []; 
         let currentIndex = -1;
         let isMasked = false;
+
+        // 幕僚端發送紀錄
+        let sentHistory = [];
 
         // 系統預設 10 組標準快捷詞
         const systemDefaultPresets = [
@@ -585,6 +611,7 @@
 
             loadPresetsFromStorage();
             renderPresets();
+            renderSentHistory();
         }
 
         function handleFeedbackEffect(action) {
@@ -616,6 +643,14 @@
             document.getElementById('char-num').innerText = text.length;
         }
 
+        function getCurrentFormattedTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+
         function sendMessage() {
             const sender = document.getElementById('sender-input').value.trim();
             const text = document.getElementById('text-input').value.trim();
@@ -633,6 +668,40 @@
             if (DYNAMIC_TOPIC) {
                 const payload = JSON.stringify({ sender: sender, text: text });
                 client.publish(DYNAMIC_TOPIC, payload);
+
+                // 記錄發送歷史
+                const timeStr = getCurrentFormattedTime();
+                sentHistory.unshift({ sender, text, time: timeStr });
+                if (sentHistory.length > 20) sentHistory.pop();
+                renderSentHistory();
+            }
+        }
+
+        function renderSentHistory() {
+            const container = document.getElementById('sent-history-container');
+            if (!container) return;
+
+            if (sentHistory.length === 0) {
+                container.innerHTML = `<div class="history-empty">尚無傳送紀錄</div>`;
+                return;
+            }
+
+            container.innerHTML = sentHistory.map(item => `
+                <div class="history-item">
+                    <div class="history-item-content">
+                        <span class="history-item-sender">【${item.sender.replace(/</g, '&lt;')}】</span>
+                        <span class="history-item-text">${item.text.replace(/</g, '&lt;')}</span>
+                    </div>
+                    <span class="history-item-time">${item.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function clearSentHistory() {
+            if (sentHistory.length === 0) return;
+            if (confirm("確定要清空過往發送紀錄嗎？")) {
+                sentHistory = [];
+                renderSentHistory();
             }
         }
 
