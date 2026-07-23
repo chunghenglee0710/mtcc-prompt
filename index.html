@@ -50,7 +50,7 @@
         .btn-display { background: #007aff; }
         .btn-control { background: #34c759; }
 
-        /* 2. 長官平板顯示端 */
+        /* 2. 長官顯示端 */
         #display-view { display: none; width: 100vw; height: 100vh; background: #000; flex-direction: column; justify-content: space-between; align-items: center; padding: 2vh 2vw; text-align: center; position: relative; user-select: none; }
         .display-header { width: 100%; display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 20px; }
         #sender-tag { font-size: 3.5vw; color: #ffd60a; font-weight: bold; }
@@ -75,7 +75,7 @@
         .nav-left { left: 10px; }
         .nav-right { right: 10px; }
 
-        /* 3. 主管控制端 */
+        /* 3. 幕僚控制端 */
         #control-view { display: none; padding: 20px; max-width: 600px; margin: 0 auto; color: #f2f2f7; background: #1c1c1e; height: 100vh; overflow-y: auto; }
         .control-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; text-align: center; color: #fff; line-height: 1.3; }
         .input-group { margin-bottom: 12px; }
@@ -121,11 +121,11 @@
             <input type="text" id="room-key" value="matsu2026" placeholder="請輸入動態密碼" maxlength="20">
         </div>
 
-        <button class="mode-btn btn-display" onclick="startDisplay()">長官平板（顯示端）</button>
-        <button class="mode-btn btn-control" onclick="startControl()">主管/幕僚（控制端）</button>
+        <button class="mode-btn btn-display" onclick="startDisplay()">長官（顯示端）</button>
+        <button class="mode-btn btn-control" onclick="startControl()">幕僚（控制端）</button>
     </div>
 
-    <!-- 2. 長官平板顯示頁面 -->
+    <!-- 2. 長官顯示頁面 -->
     <div id="display-view">
         <div class="display-header">
             <div id="sender-tag"></div>
@@ -140,7 +140,7 @@
         <button class="nav-btn nav-right" onclick="navigateHistory(1)">❯</button>
     </div>
 
-    <!-- 3. 主管控制頁面 -->
+    <!-- 3. 幕僚控制頁面 -->
     <div id="control-view">
         <div class="control-title">連江縣政府行政處<br>議會質詢推播控制台</div>
         <div id="status" class="status-tag">連線驗證中...</div>
@@ -291,7 +291,7 @@
             }
         }
 
-        /* --- 主管端邏輯 --- */
+        /* --- 幕僚端邏輯 --- */
         function startControl() {
             DYNAMIC_TOPIC = getSecureTopic();
 
