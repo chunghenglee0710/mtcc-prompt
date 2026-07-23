@@ -10,12 +10,39 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; overflow: hidden; background-color: #000; color: #fff; touch-action: manipulation; }
         
-        /* 1. 身份與密碼驗證頁面 */
-        .mode-selector { display: flex; flex-direction: column; height: 100vh; justify-content: center; align-items: center; gap: 15px; background: #1c1c1e; padding: 20px; text-align: center; }
+        /* 1. 選擇身份頁面 */
+        .mode-selector { display: flex; flex-direction: column; min-height: 100vh; justify-content: center; align-items: center; gap: 15px; background: #1c1c1e; padding: 20px; text-align: center; overflow-y: auto; }
         .mode-selector h2 { font-size: 24px; font-weight: bold; color: #fff; line-height: 1.4; max-width: 500px; }
         .mode-selector p { font-size: 14px; color: #8e8e93; }
         
-        .room-box { background: #2c2c2e; padding: 20px; border-radius: 16px; width: 100%; max-width: 340px; border: 1px solid #38383a; margin-bottom: 10px; }
+        /* 資安警語告示牌 */
+        .security-notice {
+            background: rgba(255, 69, 58, 0.15);
+            border: 1px solid #ff453a;
+            border-radius: 12px;
+            padding: 12px 16px;
+            max-width: 340px;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 5px;
+        }
+        .security-notice-title {
+            color: #ff453a;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .security-notice-text {
+            color: #ebebf5;
+            font-size: 12px;
+            line-height: 1.5;
+            opacity: 0.9;
+        }
+
+        .room-box { background: #2c2c2e; padding: 18px; border-radius: 16px; width: 100%; max-width: 340px; border: 1px solid #38383a; margin-bottom: 5px; }
         .room-box label { display: block; font-size: 14px; color: #ffd60a; margin-bottom: 8px; font-weight: bold; }
         .room-box input { width: 100%; padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #007aff; background: #1c1c1e; color: #fff; text-align: center; letter-spacing: 2px; }
 
@@ -79,8 +106,16 @@
     <!-- 1. 選擇身份與輸入安全密碼頁面 -->
     <div id="setup-view" class="mode-selector">
         <h2>連江縣政府行政處<br>議會質詢即時提示系統</h2>
-        <p>請先設定今日連線安全金鑰</p>
+        <p>請設定今日連線安全金鑰並注意使用規範</p>
         
+        <!-- 資安注意事項告示 -->
+        <div class="security-notice">
+            <div class="security-notice-title">⚠️ 資安注意事項</div>
+            <div class="security-notice-text">
+                本系統為公開系統，採用簡易的邏輯隔離，無實質點對點加密，請勿發送帶有機敏性訊息以防止竊聽。
+            </div>
+        </div>
+
         <div class="room-box">
             <label>🔑 頻道安全密碼 (當天需一致)</label>
             <input type="text" id="room-key" value="matsu2026" placeholder="請輸入動態密碼" maxlength="20">
@@ -137,7 +172,7 @@
 
     <script>
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        let DYNAMIC_TOPIC = ''; // 動態頻道名稱
+        let DYNAMIC_TOPIC = ''; 
 
         // 長官端歷史紀錄
         let historyList = []; 
@@ -160,10 +195,8 @@
         let myPresets = [...systemDefaultPresets];
         let isEditing = false;
 
-        // 取得安全 Key 並建立專屬頻道 Topic
         function getSecureTopic() {
             const keyInput = document.getElementById('room-key').value.trim() || 'matsu2026';
-            // 將密碼組合入 Topic，實現隔離效果
             return `matsu_parliament_prompt_2026_${keyInput}`;
         }
 
@@ -266,7 +299,7 @@
             document.getElementById('control-view').style.display = 'block';
             
             const keyText = document.getElementById('room-key').value.trim() || 'matsu2026';
-            document.getElementById('status').innerText = `● 雲端加密通道已連線 [金鑰: ${keyText}]`;
+            document.getElementById('status').innerText = `● 雲端邏輯隔離通道已連線 [金鑰: ${keyText}]`;
 
             loadPresetsFromStorage();
             renderPresets();
@@ -329,7 +362,6 @@
                         <input type="text" class="edit-input" id="preset-input-${index}" value="${presetText.replace(/"/g, '&quot;')}" placeholder="快捷詞 ${index + 1}">
                     `;
                 } else {
-                    // 使用安全轉義防止 DOM 型 XSS 或字串排版錯亂
                     const safeText = presetText.replace(/"/g, '&quot;').replace(/'/g, "&#39;");
                     container.innerHTML += `
                         <button class="preset-btn" onclick="sendPresetByIndex(${index})">${index + 1}. ${safeText}</button>
