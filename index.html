@@ -56,11 +56,13 @@
 
         /* 快捷詞編輯區 */
         .presets-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 10px; border-top: 1px solid #38383a; padding-top: 15px; }
+        .btn-group-right { display: flex; gap: 8px; }
         .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 30px; }
         .preset-btn { padding: 12px; font-size: 15px; background: #2c2c2e; border: 1px solid #38383a; border-radius: 8px; color: #fff; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
         .preset-btn:active { background: #007aff; }
         .edit-input { width: 100%; padding: 10px; font-size: 14px; background: #1c1c1e; border: 1px solid #007aff; border-radius: 8px; color: #fff; }
         .toggle-edit-btn { background: #0a84ff; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+        .reset-btn { background: #636366; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 14px; cursor: pointer; display: none; }
     </style>
 </head>
 <body>
@@ -109,7 +111,10 @@
         <!-- 常用 10 組快捷詞區塊 -->
         <div class="presets-header">
             <span style="font-weight: bold;">自訂 10 組快捷詞：</span>
-            <button class="toggle-edit-btn" onclick="toggleEditPresets()" id="edit-preset-btn">設定快捷詞</button>
+            <div class="btn-group-right">
+                <button class="reset-btn" id="reset-preset-btn" onclick="restoreDefaultPresets()">恢復預設</button>
+                <button class="toggle-edit-btn" id="edit-preset-btn" onclick="toggleEditPresets()">設定快捷詞</button>
+            </div>
         </div>
         <div class="preset-grid" id="preset-container"></div>
     </div>
@@ -118,12 +123,12 @@
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
         const TOPIC = 'matsu_parliament_prompt_2026';
 
-        // 歷史紀錄 (長官端)
+        // 長官端歷史紀錄
         let historyList = []; 
         let currentIndex = -1;
 
-        // 預設 10 組快捷詞內容
-        let myPresets = [
+        // 系統標準 10 組預設快捷詞
+        const systemDefaultPresets = [
             "已交辦權責局處辦理",
             "預算已於本期編列",
             "預計今年底前完成",
@@ -135,6 +140,9 @@
             "本案刻正進行規劃",
             "相關數據會後補充"
         ];
+
+        // 當前使用中的快捷詞陣列
+        let myPresets = [...systemDefaultPresets];
         let isEditing = false;
 
         client.on('connect', () => {
@@ -248,7 +256,6 @@
             }
         }
 
-        // 點擊快捷詞：按陣列索引直接讀取最新內容並傳送
         function sendPresetByIndex(index) {
             const text = myPresets[index];
             if (text) {
@@ -265,7 +272,7 @@
             client.publish(TOPIC, payload);
         }
 
-        /* --- 快捷詞讀取、儲存與渲染 --- */
+        /* --- 快捷詞管理與恢復預設 --- */
         function loadPresetsFromStorage() {
             const saved = localStorage.getItem('matsu_parliament_presets_v2');
             if (saved) {
@@ -298,16 +305,18 @@
         }
 
         function toggleEditPresets() {
-            const btn = document.getElementById('edit-preset-btn');
+            const editBtn = document.getElementById('edit-preset-btn');
+            const resetBtn = document.getElementById('reset-preset-btn');
             
             if (!isEditing) {
-                // 開啟編輯模式
+                // 開啟編輯模式，顯示「恢復預設」按鈕
                 isEditing = true;
-                btn.innerText = '儲存快捷詞';
-                btn.style.background = '#30d158';
+                editBtn.innerText = '儲存快捷詞';
+                editBtn.style.background = '#30d158';
+                resetBtn.style.display = 'block';
                 renderPresets();
             } else {
-                // 讀取輸入框內容並存入陣列
+                // 讀取輸入內容並寫入記憶
                 for (let i = 0; i < 10; i++) {
                     const inputEl = document.getElementById(`preset-input-${i}`);
                     if (inputEl) {
@@ -315,13 +324,21 @@
                     }
                 }
                 
-                // 強制寫入 Safari LocalStorage
                 localStorage.setItem('matsu_parliament_presets_v2', JSON.stringify(myPresets));
                 
-                // 關閉編輯模式並重新渲染按鈕
                 isEditing = false;
-                btn.innerText = '設定快捷詞';
-                btn.style.background = '#0a84ff';
+                editBtn.innerText = '設定快捷詞';
+                editBtn.style.background = '#0a84ff';
+                resetBtn.style.display = 'none';
+                renderPresets();
+            }
+        }
+
+        // 一鍵恢復系統預設值
+        function restoreDefaultPresets() {
+            if (confirm("確定要將 10 組快捷詞恢復為系統預設值嗎？")) {
+                myPresets = [...systemDefaultPresets];
+                localStorage.setItem('matsu_parliament_presets_v2', JSON.stringify(myPresets));
                 renderPresets();
             }
         }
