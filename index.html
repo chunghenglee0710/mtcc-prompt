@@ -11,7 +11,7 @@
         body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; overflow: hidden; background-color: #000; color: #fff; touch-action: manipulation; }
         
         /* 1. 選擇身份頁面 */
-        .mode-selector { display: flex; flex-direction: column; min-height: 100vh; justify-content: center; align-items: center; gap: 15px; background: #1c1c1e; padding: 20px; text-align: center; overflow-y: auto; }
+        .mode-selector { display: flex; flex-direction: column; min-height: 100vh; justify-content: center; align-items: center; gap: 15px; background: #1c1c1e; padding: 20px; text-align: center; overflow-y: auto; position: relative; }
         .mode-selector h2 { font-size: 24px; font-weight: bold; color: #fff; line-height: 1.4; max-width: 500px; }
         .mode-selector p { font-size: 14px; color: #8e8e93; }
         
@@ -49,6 +49,77 @@
         .mode-btn { width: 100%; max-width: 340px; padding: 18px; font-size: 20px; font-weight: bold; cursor: pointer; border: none; border-radius: 14px; color: white; transition: 0.2s; text-align: center; }
         .btn-display { background: #007aff; }
         .btn-control { background: #34c759; }
+
+        /* 免責聲明觸發按鈕 */
+        .disclaimer-link {
+            font-size: 13px;
+            color: #0a84ff;
+            text-decoration: underline;
+            cursor: pointer;
+            margin-top: 10px;
+            padding: 5px;
+        }
+
+        /* 免責聲明浮動視窗 (Modal) */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: #2c2c2e;
+            border: 1px solid #38383a;
+            border-radius: 18px;
+            max-width: 420px;
+            width: 100%;
+            padding: 24px;
+            text-align: left;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            position: relative;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffd60a;
+            margin-bottom: 14px;
+            border-bottom: 1px solid #38383a;
+            padding-bottom: 8px;
+        }
+        .modal-body p {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #e5e5ea;
+            margin-bottom: 12px;
+            text-align: justify;
+        }
+        .modal-body strong {
+            color: #fff;
+        }
+        .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #8e8e93;
+            font-size: 18px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
         /* 2. 長官顯示端 */
         #display-view { display: none; width: 100vw; height: 100vh; background: #000; flex-direction: column; justify-content: space-between; align-items: center; padding: 2vh 2vw 10vh 2vw; text-align: center; position: relative; user-select: none; }
@@ -199,6 +270,22 @@
 
         <button class="mode-btn btn-display" onclick="startDisplay()">長官（顯示端）</button>
         <button class="mode-btn btn-control" onclick="startControl()">幕僚（控制端）</button>
+
+        <!-- 資安及版權免責聲明連結 -->
+        <div class="disclaimer-link" onclick="openDisclaimer(event)">資安及版權免責聲明</div>
+    </div>
+
+    <!-- 免責聲明浮動視窗 (Modal) -->
+    <div class="modal-overlay" id="disclaimer-modal" onclick="closeDisclaimer()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="close-btn" onclick="closeDisclaimer()">✕</button>
+            <div class="modal-title">免責聲明 (Disclaimer)</div>
+            <div class="modal-body">
+                <p><strong>開發目的：</strong>本系統為作者宗恆個人運用 AI 技術開發之輔助工具，僅供便捷短時間提示使用。</p>
+                <p><strong>資安與風險提醒：</strong>本系統未經過完整資安與系統開發規劃，使用者須自行承擔資訊安全及相關運作風險；開發者不承擔任何因使用本系統所致之損害或法律責任。</p>
+                <p><strong>開源與部署須知：</strong>本系統無版權限制，歡迎自由下載使用。請下載後另建伺服器空間部署，請勿直接使用開發者之 GitHub 環境，以避免資料混淆與資源衝突。</p>
+            </div>
+        </div>
     </div>
 
     <!-- 2. 長官顯示頁面 -->
@@ -280,6 +367,16 @@
         let myPresets = [...systemDefaultPresets];
         let isEditing = false;
         let feedbackTimer = null; // 控制端燈光計時器
+
+        /* --- 免責聲明視窗控制 --- */
+        function openDisclaimer(event) {
+            if (event) event.stopPropagation();
+            document.getElementById('disclaimer-modal').style.display = 'flex';
+        }
+
+        function closeDisclaimer() {
+            document.getElementById('disclaimer-modal').style.display = 'none';
+        }
 
         function getSecureTopic() {
             const keyInput = document.getElementById('room-key').value.trim() || 'matsu2026';
