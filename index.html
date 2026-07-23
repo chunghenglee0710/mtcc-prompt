@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>連江縣政府行政處議會質詢即時提示系統</title>
-    <!-- MQTT 雲端即時傳輸庫 -->
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <!-- 引入 Google Firebase 雲端資料庫 SDK (使用標準 HTTPS 通訊，極度穩定) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; overflow: hidden; background-color: #000; color: #fff; touch-action: manipulation; }
@@ -97,7 +98,7 @@
     <!-- 3. 主管控制頁面 -->
     <div id="control-view">
         <div class="control-title">連江縣政府行政處<br>議會質詢推播控制台</div>
-        <div id="status" class="status-tag">雲端連線中...</div>
+        <div id="status" class="status-tag">Google 雲端同步連線中...</div>
         
         <div class="input-group">
             <label>您的單位/職稱</label>
@@ -125,9 +126,17 @@
     </div>
 
     <script>
-        // 雲端 MQTT 頻道設置 (連江縣政府專屬)
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
-        const TOPIC = 'matsu_parliament_prompt_2026';
+        // 使用公用雲端資料庫節點，絕無防火牆阻擋問題
+        const firebaseConfig = {
+            databaseURL: "https://parliament-prompt-default-rtdb.firebaseio.com/"
+        };
+        
+        // 若尚未初始化則進行初始化
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+        const promptRef = db.ref("matsu_parliament_prompt_2026");
 
         // 長官端歷史紀錄
         let historyList = []; 
@@ -150,21 +159,16 @@
         let myPresets = [...systemDefaultPresets];
         let isEditing = false;
 
-        client.on('connect', () => {
-            if (document.getElementById('status')) {
-                document.getElementById('status').innerText = '● 雲端多端連線正常';
-            }
-        });
-
         /* --- 長官端邏輯 --- */
         function startDisplay() {
             document.getElementById('setup-view').style.display = 'none';
             document.getElementById('display-view').style.display = 'flex';
             
-            client.subscribe(TOPIC);
-            client.on('message', (topic, payload) => {
-                const data = JSON.parse(payload.toString());
-                
+            // 監聽 Firebase 雲端資料庫變更 (即時推播)
+            promptRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return;
+
                 if (data.text === '') {
                     historyList = [];
                     currentIndex = -1;
@@ -173,13 +177,16 @@
                     return;
                 }
 
-                historyList.push(data);
-                if (historyList.length > 10) {
-                    historyList.shift();
+                // 防重複寫入同一筆
+                const lastItem = historyList[historyList.length - 1];
+                if (!lastItem || lastItem.timestamp !== data.timestamp) {
+                    historyList.push(data);
+                    if (historyList.length > 10) {
+                        historyList.shift();
+                    }
+                    currentIndex = historyList.length - 1;
+                    updateDisplayView();
                 }
-                
-                currentIndex = historyList.length - 1;
-                updateDisplayView();
             });
 
             setupTouchEvents();
@@ -256,8 +263,12 @@
             const sender = document.getElementById('sender-input').value.trim();
             const text = document.getElementById('text-input').value.trim();
             if (text) {
-                const payload = JSON.stringify({ sender: sender, text: text });
-                client.publish(TOPIC, payload);
+                // 寫入 Firebase 雲端資料庫
+                promptRef.set({
+                    sender: sender,
+                    text: text,
+                    timestamp: Date.now()
+                });
             }
         }
 
@@ -273,8 +284,11 @@
         function clearMessage() {
             document.getElementById('text-input').value = '';
             updateCharCount();
-            const payload = JSON.stringify({ sender: '', text: '' });
-            client.publish(TOPIC, payload);
+            promptRef.set({
+                sender: '',
+                text: '',
+                timestamp: Date.now()
+            });
         }
 
         /* --- 快捷詞讀取與管理 --- */
