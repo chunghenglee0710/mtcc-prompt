@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>議會質詢即時提示系統</title>
+    <!-- 引入 MQTT 雲端即時傳輸庫（免費、免註冊、高穩定） -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; overflow: hidden; background-color: #000; color: #fff; }
+        
+        /* 選擇身份頁面 */
+        .mode-selector { display: flex; flex-direction: column; height: 100vh; justify-content: center; align-items: center; gap: 20px; background: #1c1c1e; padding: 20px; }
+        .mode-btn { width: 100%; max-width: 320px; padding: 20px; font-size: 22px; font-weight: bold; cursor: pointer; border: none; border-radius: 14px; color: white; transition: 0.2s; text-align: center; }
+        .btn-display { background: #007aff; }
+        .btn-control { background: #34c759; }
+
+        /* 長官 iPad 顯示端 */
+        #display-view { display: none; width: 100vw; height: 100vh; background: #000; flex-direction: column; justify-content: center; align-items: center; padding: 3vh 3vw; text-align: center; }
+        #sender-tag { font-size: 4vw; color: #ffd60a; font-weight: bold; margin-bottom: 10px; height: 5vw; }
+        #message-box { 
+            font-size: 14vw; 
+            font-weight: 900; 
+            line-height: 1.15; 
+            letter-spacing: 2px;
+            color: #ffffff;
+            word-break: break-all;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            flex-grow: 1;
+        }
+
+        /* 主管控制端 */
+        #control-view { display: none; padding: 20px; max-width: 500px; margin: 0 auto; color: #f2f2f7; background: #1c1c1e; height: 100vh; overflow-y: auto; }
+        .control-title { font-size: 22px; font-weight: bold; margin-bottom: 20px; text-align: center; color: #fff; }
+        .input-group { margin-bottom: 15px; }
+        label { font-size: 14px; color: #8e8e93; display: block; margin-bottom: 5px; }
+        input[type="text"] { width: 100%; padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #38383a; background: #2c2c2e; color: #fff; }
+        textarea { width: 100%; height: 110px; font-size: 22px; padding: 12px; border-radius: 10px; border: 1px solid #38383a; background: #2c2c2e; color: #fff; resize: none; margin-bottom: 15px; }
+        .send-btn { width: 100%; padding: 16px; font-size: 22px; font-weight: bold; background: #30d158; color: white; border: none; border-radius: 10px; cursor: pointer; }
+        .send-btn:active { opacity: 0.8; }
+        .clear-btn { background: #ff453a; margin-top: 10px; }
+        .status-tag { text-align: center; font-size: 13px; color: #30d158; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 選擇身份 -->
+    <div id="setup-view" class="mode-selector">
+        <h2 style="margin-bottom: 20px;">議會質詢即時提示系統</h2>
+        <button class="mode-btn btn-display" onclick="startDisplay()">長官 iPad（顯示端）</button>
+        <button class="mode-btn btn-control" onclick="startControl()">主管/幕僚（控制端）</button>
+    </div>
+
+    <!-- 2. 長官 iPad 顯示頁面 -->
+    <div id="display-view">
+        <div id="sender-tag"></div>
+        <div id="message-box">系統準備就緒</div>
+    </div>
+
+    <!-- 3. 主管控制頁面 -->
+    <div id="control-view">
+        <div class="control-title">主管推播控制台</div>
+        <div id="status" class="status-tag">連線中...</div>
+        
+        <div class="input-group">
+            <label>您的單位/職稱（例：行政處、財政處）</label>
+            <input type="text" id="sender-input" placeholder="請輸入單位名稱" value="幕僚組">
+        </div>
+
+        <div class="input-group">
+            <label>提示訊息（建議 20 字以內）</label>
+            <textarea id="text-input" maxlength="20" placeholder="請輸入要呈現在長官螢幕的字句..."></textarea>
+        </div>
+
+        <button class="send-btn" onclick="sendMessage()">立即傳送至長官螢幕</button>
+        <button class="send-btn clear-btn" onclick="clearMessage()">清空長官螢幕</button>
+    </div>
+
+    <script>
+        // 使用免費公用 MQTTBroker 進行跨裝置廣播
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        const TOPIC = 'matsu_parliament_prompt_2026'; // 專屬頻道名稱
+
+        client.on('connect', () => {
+            console.log('連線成功');
+            if (document.getElementById('status')) {
+                document.getElementById('status').innerText = '● 雲端通訊連線正常';
+            }
+        });
+
+        // 啟動長官端
+        function startDisplay() {
+            document.getElementById('setup-view').style.display = 'none';
+            document.getElementById('display-view').style.display = 'flex';
+            
+            client.subscribe(TOPIC);
+            client.on('message', (topic, payload) => {
+                const data = JSON.parse(payload.toString());
+                const messageBox = document.getElementById('message-box');
+                const senderTag = document.getElementById('sender-tag');
+                
+                if (data.text === '') {
+                    messageBox.innerText = '';
+                    senderTag.innerText = '';
+                } else {
+                    senderTag.innerText = data.sender ? `【${data.sender}】` : '';
+                    messageBox.innerText = data.text;
+                    adjustFontSize(data.text.length);
+                }
+            });
+        }
+
+        // 啟動主管端
+        function startControl() {
+            document.getElementById('setup-view').style.display = 'none';
+            document.getElementById('control-view').style.display = 'block';
+        }
+
+        // 發送訊息
+        function sendMessage() {
+            const sender = document.getElementById('sender-input').value.trim();
+            const text = document.getElementById('text-input').value.trim();
+            if (text) {
+                const payload = JSON.stringify({ sender: sender, text: text });
+                client.publish(TOPIC, payload);
+            }
+        }
+
+        // 清空螢幕
+        function clearMessage() {
+            document.getElementById('text-input').value = '';
+            const payload = JSON.stringify({ sender: '', text: '' });
+            client.publish(TOPIC, payload);
+        }
+
+        // 字體依字數動態自動放大
+        function adjustFontSize(length) {
+            const box = document.getElementById('message-box');
+            if (length <= 4) {
+                box.style.fontSize = '20vw';
+            } else if (length <= 8) {
+                box.style.fontSize = '15vw';
+            } else if (length <= 12) {
+                box.style.fontSize = '11vw';
+            } else {
+                box.style.fontSize = '8.5vw';
+            }
+        }
+    </script>
+</body>
+</html>
