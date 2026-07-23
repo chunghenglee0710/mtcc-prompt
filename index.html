@@ -123,7 +123,7 @@
         let currentIndex = -1;
 
         // 預設 10 組快捷詞內容
-        let defaultPresets = [
+        let myPresets = [
             "已交辦權責局處辦理",
             "預算已於本期編列",
             "預計今年底前完成",
@@ -230,7 +230,7 @@
         function startControl() {
             document.getElementById('setup-view').style.display = 'none';
             document.getElementById('control-view').style.display = 'block';
-            initPresets();
+            loadPresetsFromStorage();
             renderPresets();
         }
 
@@ -248,10 +248,14 @@
             }
         }
 
-        function sendPreset(text) {
-            document.getElementById('text-input').value = text;
-            updateCharCount();
-            sendMessage();
+        // 點擊快捷詞：按陣列索引直接讀取最新內容並傳送
+        function sendPresetByIndex(index) {
+            const text = myPresets[index];
+            if (text) {
+                document.getElementById('text-input').value = text;
+                updateCharCount();
+                sendMessage();
+            }
         }
 
         function clearMessage() {
@@ -261,14 +265,17 @@
             client.publish(TOPIC, payload);
         }
 
-        /* --- 快捷詞自訂與渲染邏輯 --- */
-        function initPresets() {
-            const saved = localStorage.getItem('parliament_presets_data');
+        /* --- 快捷詞讀取、儲存與渲染 --- */
+        function loadPresetsFromStorage() {
+            const saved = localStorage.getItem('matsu_parliament_presets_v2');
             if (saved) {
                 try {
-                    defaultPresets = JSON.parse(saved);
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length === 10) {
+                        myPresets = parsed;
+                    }
                 } catch(e) {
-                    console.error("讀取失敗，使用預設值");
+                    console.error("記憶庫讀取異常");
                 }
             }
         }
@@ -277,14 +284,14 @@
             const container = document.getElementById('preset-container');
             container.innerHTML = '';
 
-            defaultPresets.forEach((presetText, index) => {
+            myPresets.forEach((presetText, index) => {
                 if (isEditing) {
                     container.innerHTML += `
                         <input type="text" class="edit-input" id="preset-input-${index}" value="${presetText}" placeholder="快捷詞 ${index + 1}">
                     `;
                 } else {
                     container.innerHTML += `
-                        <button class="preset-btn" onclick="sendPreset('${presetText.replace(/'/g, "\\'")}')">${index + 1}. ${presetText}</button>
+                        <button class="preset-btn" onclick="sendPresetByIndex(${index})">${index + 1}. ${presetText}</button>
                     `;
                 }
             });
@@ -294,23 +301,24 @@
             const btn = document.getElementById('edit-preset-btn');
             
             if (!isEditing) {
-                // 切換為編輯狀態
+                // 開啟編輯模式
                 isEditing = true;
                 btn.innerText = '儲存快捷詞';
                 btn.style.background = '#30d158';
                 renderPresets();
             } else {
-                // 儲存修改內容
+                // 讀取輸入框內容並存入陣列
                 for (let i = 0; i < 10; i++) {
-                    const input = document.getElementById(`preset-input-${i}`);
-                    if (input) {
-                        defaultPresets[i] = input.value.trim() || `快捷詞 ${i + 1}`;
+                    const inputEl = document.getElementById(`preset-input-${i}`);
+                    if (inputEl) {
+                        myPresets[i] = inputEl.value.trim() || `快捷詞 ${i + 1}`;
                     }
                 }
                 
-                // 寫入手機 LocalStorage 儲存
-                localStorage.setItem('parliament_presets_data', JSON.stringify(defaultPresets));
+                // 強制寫入 Safari LocalStorage
+                localStorage.setItem('matsu_parliament_presets_v2', JSON.stringify(myPresets));
                 
+                // 關閉編輯模式並重新渲染按鈕
                 isEditing = false;
                 btn.innerText = '設定快捷詞';
                 btn.style.background = '#0a84ff';
