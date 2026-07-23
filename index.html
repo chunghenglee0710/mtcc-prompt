@@ -52,7 +52,7 @@
 
         /* 2. 長官顯示端 */
         #display-view { display: none; width: 100vw; height: 100vh; background: #000; flex-direction: column; justify-content: space-between; align-items: center; padding: 2vh 2vw; text-align: center; position: relative; user-select: none; }
-        .display-header { width: 100%; display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 20px; }
+        .display-header { width: 100%; display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 20px; z-index: 5; }
         #sender-tag { font-size: 3.5vw; color: #ffd60a; font-weight: bold; }
         #history-counter { font-size: 2vw; color: #8e8e93; background: #1c1c1e; padding: 4px 14px; border-radius: 20px; }
         
@@ -70,8 +70,38 @@
             height: 100%;
         }
 
+        /* 遮蔽狀態文字樣式 */
+        #message-box.masked-state {
+            color: #636366 !important;
+            font-size: 10vw !important;
+        }
+
+        /* 左下角遮蔽切換按鈕 */
+        .mask-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(44, 44, 46, 0.8);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            transition: 0.2s;
+        }
+        .mask-btn:active { opacity: 0.7; }
+        .mask-btn.active-mask {
+            border-color: #ff453a;
+            color: #ff453a;
+            background: rgba(255, 69, 58, 0.15);
+        }
+
         /* 左右切換按鈕輔助 */
-        .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: white; border: none; font-size: 30px; width: 50px; height: 80px; border-radius: 10px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+        .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: white; border: none; font-size: 30px; width: 50px; height: 80px; border-radius: 10px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 5; }
         .nav-left { left: 10px; }
         .nav-right { right: 10px; }
 
@@ -136,6 +166,9 @@
             <div id="message-box">等待訊息輸入...</div>
         </div>
 
+        <!-- 左下角遮蔽切換按鈕 -->
+        <button class="mask-btn" id="mask-toggle-btn" onclick="toggleMask()">遮蔽OFF</button>
+
         <button class="nav-btn nav-left" onclick="navigateHistory(-1)">❮</button>
         <button class="nav-btn nav-right" onclick="navigateHistory(1)">❯</button>
     </div>
@@ -174,9 +207,10 @@
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
         let DYNAMIC_TOPIC = ''; 
 
-        // 長官端歷史紀錄
+        // 長官端歷史紀錄與遮蔽狀態
         let historyList = []; 
         let currentIndex = -1;
+        let isMasked = false;
 
         // 系統預設 10 組標準快捷詞
         const systemDefaultPresets = [
@@ -237,11 +271,30 @@
             setupTouchEvents();
         }
 
+        // 遮蔽切換功能
+        function toggleMask() {
+            isMasked = !isMasked;
+            const maskBtn = document.getElementById('mask-toggle-btn');
+
+            if (isMasked) {
+                maskBtn.innerText = '遮蔽ON';
+                maskBtn.classList.add('active-mask');
+            } else {
+                maskBtn.innerText = '遮蔽OFF';
+                maskBtn.classList.remove('active-mask');
+            }
+
+            // 重新渲染畫面呈現
+            updateDisplayView();
+        }
+
         function updateDisplayView() {
             if (currentIndex >= 0 && currentIndex < historyList.length) {
                 const item = historyList[currentIndex];
                 renderDisplay(item.sender, item.text);
                 document.getElementById('history-counter').innerText = `${currentIndex + 1}/${historyList.length}`;
+            } else if (historyList.length === 0) {
+                renderDisplay('', '等待訊息輸入...');
             }
         }
 
@@ -250,8 +303,16 @@
             const senderTag = document.getElementById('sender-tag');
             
             senderTag.innerText = sender ? `【${sender}】` : '';
-            messageBox.innerText = text;
-            adjustFontSize(text ? text.length : 0);
+            
+            // 若開啟遮蔽，內文替換為「遮蔽中」
+            if (isMasked) {
+                messageBox.innerText = '遮蔽中';
+                messageBox.classList.add('masked-state');
+            } else {
+                messageBox.innerText = text;
+                messageBox.classList.remove('masked-state');
+                adjustFontSize(text ? text.length : 0);
+            }
         }
 
         function navigateHistory(direction) {
@@ -276,7 +337,7 @@
 
         function adjustFontSize(length) {
             const box = document.getElementById('message-box');
-            if (length === 0) return;
+            if (length === 0 || isMasked) return;
             
             if (length <= 6) {
                 box.style.fontSize = '18vw';
