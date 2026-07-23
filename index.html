@@ -19,8 +19,8 @@
         /* 長官 iPad 顯示端 */
         #display-view { display: none; width: 100vw; height: 100vh; background: #000; flex-direction: column; justify-content: space-between; align-items: center; padding: 2vh 2vw; text-align: center; position: relative; user-select: none; }
         .display-header { width: 100%; display: flex; justify-content: space-between; align-items: center; height: 60px; padding: 0 20px; }
-        #sender-tag { font-size: 3vw; color: #ffd60a; font-weight: bold; }
-        #history-counter { font-size: 1.8vw; color: #8e8e93; background: #1c1c1e; padding: 4px 12px; border-radius: 20px; }
+        #sender-tag { font-size: 3.5vw; color: #ffd60a; font-weight: bold; }
+        #history-counter { font-size: 2vw; color: #8e8e93; background: #1c1c1e; padding: 4px 14px; border-radius: 20px; }
         
         #message-container { flex-grow: 1; width: 100%; display: flex; justify-content: center; align-items: center; padding: 10px; overflow: hidden; }
         #message-box { 
@@ -47,7 +47,7 @@
         .input-group { margin-bottom: 12px; }
         label { font-size: 14px; color: #8e8e93; display: block; margin-bottom: 5px; }
         input[type="text"] { width: 100%; padding: 12px; font-size: 18px; border-radius: 10px; border: 1px solid #38383a; background: #2c2c2e; color: #fff; }
-        textarea { width: 100%; height: 100px; font-size: 20px; padding: 12px; border-radius: 10px; border: 1px solid #38383a; background: #2c2c2e; color: #fff; resize: none; margin-bottom: 5px; }
+        textarea { width: 100%; height: 90px; font-size: 20px; padding: 12px; border-radius: 10px; border: 1px solid #38383a; background: #2c2c2e; color: #fff; resize: none; margin-bottom: 5px; }
         .char-count { text-align: right; font-size: 12px; color: #8e8e93; margin-bottom: 10px; }
         
         .send-btn { width: 100%; padding: 16px; font-size: 22px; font-weight: bold; background: #30d158; color: white; border: none; border-radius: 10px; cursor: pointer; margin-bottom: 8px; }
@@ -55,11 +55,12 @@
         .status-tag { text-align: center; font-size: 13px; color: #30d158; margin-bottom: 10px; }
 
         /* 快捷詞編輯區 */
-        .presets-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 10px; }
-        .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
-        .preset-item { display: flex; gap: 4px; }
-        .preset-btn { flex-grow: 1; padding: 10px; font-size: 14px; background: #2c2c2e; border: 1px solid #38383a; border-radius: 8px; color: #fff; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+        .presets-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 10px; border-top: 1px solid #38383a; padding-top: 15px; }
+        .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 30px; }
+        .preset-btn { padding: 12px; font-size: 15px; background: #2c2c2e; border: 1px solid #38383a; border-radius: 8px; color: #fff; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
         .preset-btn:active { background: #007aff; }
+        .edit-input { width: 100%; padding: 10px; font-size: 14px; background: #1c1c1e; border: 1px solid #007aff; border-radius: 8px; color: #fff; }
+        .toggle-edit-btn { background: #0a84ff; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 14px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -75,11 +76,11 @@
     <div id="display-view">
         <div class="display-header">
             <div id="sender-tag"></div>
-            <div id="history-counter">1/1</div>
+            <div id="history-counter">0/0</div>
         </div>
         
         <div id="message-container">
-            <div id="message-box">系統準備就緒</div>
+            <div id="message-box">等待訊息輸入...</div>
         </div>
 
         <button class="nav-btn nav-left" onclick="navigateHistory(-1)">❮</button>
@@ -89,7 +90,7 @@
     <!-- 3. 主管控制頁面 -->
     <div id="control-view">
         <div class="control-title">主管推播控制台</div>
-        <div id="status" class="status-tag">連線中...</div>
+        <div id="status" class="status-tag">雲端連線中...</div>
         
         <div class="input-group">
             <label>您的單位/職稱</label>
@@ -107,8 +108,8 @@
 
         <!-- 常用 10 組快捷詞區塊 -->
         <div class="presets-header">
-            <span style="font-weight: bold;">自訂 10 組快捷詞（點擊即發送）：</span>
-            <button onclick="editPresetsMode()" style="background:none; border:none; color:#0a84ff; font-size:14px; cursor:pointer;" id="edit-preset-btn">編輯內容</button>
+            <span style="font-weight: bold;">自訂 10 組快捷詞：</span>
+            <button class="toggle-edit-btn" onclick="toggleEditPresets()" id="edit-preset-btn">設定快捷詞</button>
         </div>
         <div class="preset-grid" id="preset-container"></div>
     </div>
@@ -117,17 +118,24 @@
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
         const TOPIC = 'matsu_parliament_prompt_2026';
 
-        // 歷史紀錄資料 (長官端)
+        // 歷史紀錄 (長官端)
         let historyList = []; 
         let currentIndex = -1;
 
-        // 快捷詞資料 (主管端)
+        // 預設 10 組快捷詞內容
         let defaultPresets = [
-            "已交辦權責局處辦理", "預算已於本期編列", "預計今年底前完成", "會後提供書面資料",
-            "研議研擬方案辦理", "積極向中央爭取補助", "感謝議員關心與指教", "配合中央法規推動",
-            "本案刻正進行規劃", "相關數據會後補充"
+            "已交辦權責局處辦理",
+            "預算已於本期編列",
+            "預計今年底前完成",
+            "會後提供書面資料",
+            "研議研擬方案辦理",
+            "積極向中央爭取補助",
+            "感謝議員關心與指教",
+            "配合中央法規推動",
+            "本案刻正進行規劃",
+            "相關數據會後補充"
         ];
-        let isEditingPresets = false;
+        let isEditing = false;
 
         client.on('connect', () => {
             if (document.getElementById('status')) {
@@ -144,26 +152,23 @@
             client.on('message', (topic, payload) => {
                 const data = JSON.parse(payload.toString());
                 
-                // 清空指令
                 if (data.text === '') {
                     historyList = [];
                     currentIndex = -1;
-                    renderDisplay('', '');
+                    renderDisplay('', '等待訊息輸入...');
+                    document.getElementById('history-counter').innerText = '0/0';
                     return;
                 }
 
-                // 新增至前 10 筆歷史紀錄
                 historyList.push(data);
                 if (historyList.length > 10) {
                     historyList.shift();
                 }
                 
-                // 跳至最新的訊息
                 currentIndex = historyList.length - 1;
                 updateDisplayView();
             });
 
-            // 加入手勢滑動監聽 (Swipe)
             setupTouchEvents();
         }
 
@@ -180,7 +185,7 @@
             const senderTag = document.getElementById('sender-tag');
             
             senderTag.innerText = sender ? `【${sender}】` : '';
-            messageBox.innerText = text || '等待訊息...';
+            messageBox.innerText = text;
             adjustFontSize(text ? text.length : 0);
         }
 
@@ -193,19 +198,17 @@
             }
         }
 
-        // 滑動手勢支援 (左右滑動)
         let touchStartX = 0;
         function setupTouchEvents() {
             const displayView = document.getElementById('display-view');
             displayView.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
             displayView.addEventListener('touchend', e => {
                 let touchEndX = e.changedTouches[0].screenX;
-                if (touchStartX - touchEndX > 50) navigateHistory(1);  // 向左滑：看較新
-                if (touchEndX - touchStartX > 50) navigateHistory(-1); // 向右滑：看較舊
+                if (touchStartX - touchEndX > 50) navigateHistory(1);
+                if (touchEndX - touchStartX > 50) navigateHistory(-1);
             });
         }
 
-        // 依字數動態最佳化字體大小 (支援 1~50 字)
         function adjustFontSize(length) {
             const box = document.getElementById('message-box');
             if (length === 0) return;
@@ -227,7 +230,7 @@
         function startControl() {
             document.getElementById('setup-view').style.display = 'none';
             document.getElementById('control-view').style.display = 'block';
-            loadPresets();
+            initPresets();
             renderPresets();
         }
 
@@ -258,47 +261,59 @@
             client.publish(TOPIC, payload);
         }
 
-        // 快捷詞讀取與管理
-        function loadPresets() {
-            const saved = localStorage.getItem('parliament_presets');
+        /* --- 快捷詞自訂與渲染邏輯 --- */
+        function initPresets() {
+            const saved = localStorage.getItem('parliament_presets_data');
             if (saved) {
-                defaultPresets = JSON.parse(saved);
+                try {
+                    defaultPresets = JSON.parse(saved);
+                } catch(e) {
+                    console.error("讀取失敗，使用預設值");
+                }
             }
         }
 
         function renderPresets() {
             const container = document.getElementById('preset-container');
             container.innerHTML = '';
-            defaultPresets.forEach((preset, index) => {
-                if (isEditingPresets) {
+
+            defaultPresets.forEach((presetText, index) => {
+                if (isEditing) {
                     container.innerHTML += `
-                        <div class="preset-item">
-                            <input type="text" value="${preset}" id="preset-edit-${index}" style="font-size:13px; padding:6px;">
-                        </div>`;
+                        <input type="text" class="edit-input" id="preset-input-${index}" value="${presetText}" placeholder="快捷詞 ${index + 1}">
+                    `;
                 } else {
                     container.innerHTML += `
-                        <div class="preset-item">
-                            <button class="preset-btn" onclick="sendPreset('${preset}')">${index + 1}. ${preset}</button>
-                        </div>`;
+                        <button class="preset-btn" onclick="sendPreset('${presetText.replace(/'/g, "\\'")}')">${index + 1}. ${presetText}</button>
+                    `;
                 }
             });
         }
 
-        function editPresetsMode() {
+        function toggleEditPresets() {
             const btn = document.getElementById('edit-preset-btn');
-            if (!isEditingPresets) {
-                isEditingPresets = true;
+            
+            if (!isEditing) {
+                // 切換為編輯狀態
+                isEditing = true;
                 btn.innerText = '儲存快捷詞';
+                btn.style.background = '#30d158';
                 renderPresets();
             } else {
-                // 儲存設定
+                // 儲存修改內容
                 for (let i = 0; i < 10; i++) {
-                    const inputVal = document.getElementById(`preset-edit-${i}`).value.trim();
-                    defaultPresets[i] = inputVal || `快捷詞 ${i + 1}`;
+                    const input = document.getElementById(`preset-input-${i}`);
+                    if (input) {
+                        defaultPresets[i] = input.value.trim() || `快捷詞 ${i + 1}`;
+                    }
                 }
-                localStorage.setItem('parliament_presets', JSON.stringify(defaultPresets));
-                isEditingPresets = false;
-                btn.innerText = '編輯內容';
+                
+                // 寫入手機 LocalStorage 儲存
+                localStorage.setItem('parliament_presets_data', JSON.stringify(defaultPresets));
+                
+                isEditing = false;
+                btn.innerText = '設定快捷詞';
+                btn.style.background = '#0a84ff';
                 renderPresets();
             }
         }
