@@ -421,8 +421,9 @@
         let currentIndex = -1;
         let isMasked = false;
 
-        // 幕僚端發送紀錄
+        // 幕僚端發送紀錄與冷卻狀態
         let sentHistory = [];
+        let isCoolingDown = false;
 
         // 系統預設 10 組標準快捷詞
         const systemDefaultPresets = [
@@ -652,6 +653,12 @@
         }
 
         function sendMessage() {
+            // 防刷機制檢查
+            if (isCoolingDown) {
+                alert("發送太頻繁，請等待 2 秒後再試！");
+                return;
+            }
+
             const sender = document.getElementById('sender-input').value.trim();
             const text = document.getElementById('text-input').value.trim();
 
@@ -668,6 +675,12 @@
             if (DYNAMIC_TOPIC) {
                 const payload = JSON.stringify({ sender: sender, text: text });
                 client.publish(DYNAMIC_TOPIC, payload);
+
+                // 啟動 2 秒防刷冷卻
+                isCoolingDown = true;
+                setTimeout(() => {
+                    isCoolingDown = false;
+                }, 2000);
 
                 // 記錄發送歷史
                 const timeStr = getCurrentFormattedTime();
