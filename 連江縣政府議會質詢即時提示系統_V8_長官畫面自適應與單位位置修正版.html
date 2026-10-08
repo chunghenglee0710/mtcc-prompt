@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>連江縣政府議會質詢即時提示系統(行政處內測版)</title>
+    <!-- MQTT 雲端即時傳輸庫 -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif; background-color: #000; color: #fff; touch-action: manipulation; }
+        
+        /* 1. 選擇身份頁面（全畫面垂直可滑動） */
+        .mode-selector { 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 100vh; 
+            justify-content: flex-start; 
+            align-items: center; 
+            gap: 12px; 
+            background: #1c1c1e; 
+            padding: 24px 16px; 
+            text-align: center; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch;
+        }
+        .mode-selector h2 { font-size: clamp(20px, 5vw, 26px); font-weight: bold; color: #fff; line-height: 1.4; max-width: 500px; }
+        .mode-selector p { font-size: clamp(12px, 3.5vw, 14px); color: #8e8e93; }
+        
+        .room-box { background: #2c2c2e; padding: 16px; border-radius: 16px; width: 100%; max-width: 360px; border: 1px solid #38383a; margin-bottom: 2px; }
+        .room-box label { display: block; font-size: 14px; color: #ffd60a; margin-bottom: 8px; font-weight: bold; }
+        .room-box input { width: 100%; padding: 12px; font-size: 16px; border-radius: 10px; border: 1px solid #007aff; background: #1c1c1e; color: #fff; text-align: center; letter-spacing: 2px; }
+
+        /* 資安警語告示牌 */
+        .security-notice {
+            background: rgba(255, 69, 58, 0.15);
+            border: 1px solid #ff453a;
+            border-radius: 12px;
+            padding: 12px 16px;
+            max-width: 360px;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 5px;
+        }
+        .security-notice-title {
+            color: #ff453a;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .security-notice-text {
+            color: #ebebf5;
+            font-size: 12px;
+            line-height: 1.5;
+            opacity: 0.9;
+        }
+
+        .mode-btn { width: 100%; max-width: 360px; padding: 16px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 14px; color: white; transition: 0.2s; text-align: center; }
+        .btn-display { background: #007aff; }
+        .btn-control { background: #34c759; }
+
+        /* 免責聲明觸發按鈕 */
+        .disclaimer-link {
+            font-size: 13px;
+            color: #0a84ff;
+            text-decoration: underline;
+            cursor: pointer;
+            margin-top: 4px;
+            padding: 5px;
+        }
+
+        /* 首頁 QR Code 圖片區塊 */
+        .home-share-img {
+            width: clamp(120px, 35vw, 160px);
+            height: clamp(120px, 35vw, 160px);
+            border-radius: 12px;
+            border: 1px solid #38383a;
+            background: #000;
+            margin-top: 4px;
+        }
+
+        /* 強制資安注意事項浮動視窗 */
+        #security-consent-modal {
+            display: flex;
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .security-consent-content {
+            background: #2c2c2e;
+            border: 1px solid #ff453a;
+            border-radius: 18px;
+            width: 100%;
+            max-width: 520px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+        }
+
+        .security-consent-title {
+            color: #ff453a;
+            font-size: 21px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #48484a;
+        }
+
+        .security-consent-body {
+            color: #f2f2f7;
+            font-size: 14px;
+            line-height: 1.7;
+            text-align: justify;
+        }
+
+        .security-consent-body p {
+            margin-bottom: 12px;
+        }
+
+        .security-consent-body strong {
+            color: #ffd60a;
+        }
+
+        .security-consent-warning {
+            color: #ff9f0a;
+            background: rgba(255,159,10,0.12);
+            border: 1px solid rgba(255,159,10,0.45);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-top: 12px;
+        }
+
+        .security-consent-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .security-consent-buttons button {
+            flex: 1;
+            padding: 14px 10px;
+            border: none;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #security-agree-btn {
+            background: #30d158;
+            color: #fff;
+        }
+
+        #security-disagree-btn {
+            background: #ff453a;
+            color: #fff;
+        }
+
+        #security-agree-btn:active,
+        #security-disagree-btn:active {
+            opacity: 0.7;
+        }
+
+        /* 清空所有長官螢幕確認視窗 */
+        #clear-screen-confirm-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.78);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 900;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .clear-screen-confirm-content {
+            background: #2c2c2e;
+            border: 1px solid #ff453a;
+            border-radius: 18px;
+            width: 100%;
+            max-width: 460px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+            text-align: center;
+        }
+
+        .clear-screen-confirm-title {
+            color: #ff453a;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 14px;
+        }
+
+        .clear-screen-confirm-body {
+            color: #f2f2f7;
+            font-size: 15px;
+            line-height: 1.7;
+            text-align: left;
+        }
+
+        .clear-screen-confirm-body strong {
+            color: #ffd60a;
+        }
+
+        .clear-screen-confirm-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 22px;
+        }
+
+        .clear-screen-confirm-buttons button {
+            flex: 1;
+            padding: 14px 10px;
+            border: none;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #confirm-clear-screen-btn {
+            background: #ff453a;
+            color: #fff;
+        }
+
+        #cancel-clear-screen-btn {
+            background: #48484a;
+            color: #fff;
+        }
+
+        #confirm-clear-screen-btn:active,
+        #cancel-clear-screen-btn:active {
+            opacity: 0.7;
+        }
+
+        /* 免責聲明浮動視窗 (Modal) */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: #2c2c2e;
+            border: 1px solid #38383a;
+            border-radius: 18px;
+            max-width: 480px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 24px;
+            text-align: left;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            position: relative;
+            -webkit-overflow-scrolling: touch;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffd60a;
+            margin-bottom: 14px;
+            border-bottom: 1px solid #38383a;
+            padding-bottom: 8px;
+        }
+        .modal-body p {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #e5e5ea;
+            margin-bottom: 12px;
+            text-align: justify;
+        }
+        .modal-body strong {
+            color: #fff;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #8e8e93;
+            font-size: 18px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 2. 長官顯示端 */
+        #display-view {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            min-height: 100svh;
+            box-sizing: border-box;
+            background: #000;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: max(10px, env(safe-area-inset-top)) 2vw calc(110px + env(safe-area-inset-bottom)) 2vw;
+            text-align: center;
+            position: relative;
+            user-select: none;
+            overflow: hidden;
+        }
+        .display-header { width: 100%; display: flex; justify-content: flex-end; align-items: center; min-height: 42px; padding: 0 20px; box-sizing: border-box; z-index: 5; }
+        #sender-tag { font-size: clamp(16px, 3.5vw, 36px); color: #ffd60a; font-weight: bold; text-align: center; line-height: 1.15; margin: 0 0 clamp(8px, 1.5vh, 16px); width: 100%; flex: 0 0 auto; }
+        #history-counter { font-size: clamp(12px, 2vw, 20px); color: #8e8e93; background: #1c1c1e; padding: 4px 14px; border-radius: 20px; }
+        #message-container { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px 3vw; overflow: hidden; box-sizing: border-box; }
+
+        /* 遮蔽狀態文字樣式 */
+        #message-box.masked-state {
+            color: #636366 !important;
+            font-size: clamp(32px, 10vw, 80px) !important;
+        }
+
+        /* 左下角按鈕群組容器 */
+        .bottom-left-controls {
+            position: absolute;
+            bottom: max(20px, env(safe-area-inset-bottom));
+            left: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            z-index: 20;
+        }
+
+        /* 控制按鈕通用樣式 */
+        .display-ctrl-btn {
+            background: rgba(44, 44, 46, 0.85);
+            color: #ffffff;
+            border: 1.5px solid rgba(255, 255, 255, 0.4);
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: clamp(14px, 2vw, 18px);
+            font-weight: bold;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .display-ctrl-btn:active { opacity: 0.7; }
+
+        /* 長官端獨立文字廣播按鈕：固定於畫面下方中央，避免被其他控制列遮住 */
+        .chief-broadcast-open-btn {
+            position: absolute;
+            left: 50%;
+            bottom: max(18px, env(safe-area-inset-bottom));
+            transform: translateX(-50%);
+            z-index: 30;
+            min-width: 150px;
+            padding: 12px 20px;
+            border-radius: 14px;
+            border: 2px solid #ff9f0a;
+            background: rgba(44, 44, 46, 0.96);
+            color: #ffffff;
+            font-size: clamp(16px, 2.2vw, 22px);
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .chief-broadcast-open-btn:active {
+            opacity: 0.75;
+            transform: translateX(-50%) scale(0.97);
+        }
+        @media (max-width: 600px) {
+            .chief-broadcast-open-btn {
+                bottom: max(14px, env(safe-area-inset-bottom));
+                min-width: 138px;
+                padding: 11px 16px;
+                font-size: 16px;
+            }
+        }
+
+        /* 遮蔽開啟樣式 */
+        .display-ctrl-btn.active-mask {
+            border-color: #ff453a;
+            color: #ff453a;
+            background: rgba(255, 69, 58, 0.25);
+        }
+
+        /* 最新提示按鈕專用樣式 */
+        .latest-btn {
+            background: rgba(0, 122, 255, 0.25);
+            border-color: #007aff;
+            color: #30d158;
+        }
+
+        /* 反饋手勢按鈕樣式 */
+        .feedback-btn {
+            font-size: 18px;
+            padding: 10px 14px;
+        }
+
+        /* 左右切換按鈕輔助 */
+        .nav-btn { position: absolute; top: 45%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: white; border: none; font-size: 24px; width: 44px; height: 70px; border-radius: 10px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 5; }
+        .nav-left { left: 10px; }
+        .nav-right { right: 10px; }
+
+        /* 全螢幕／橫向小高度裝置安全區 */
+        @media (max-height: 600px) {
+            #display-view {
+                padding-top: max(6px, env(safe-area-inset-top));
+                padding-bottom: calc(105px + env(safe-area-inset-bottom));
+            }
+            .display-header { min-height: 34px; }
+            #sender-tag { margin-bottom: 6px; }
+            .bottom-left-controls { bottom: calc(8px + env(safe-area-inset-bottom)); }
+            .chief-broadcast-open-btn { bottom: calc(60px + env(safe-area-inset-bottom)); }
+        }
+
+        /* 3. 幕僚控制端（支援長頁面滑動與自適應） */
+        #control-view { 
+            display: none; 
+            padding: 20px; 
+            max-width: 600px; 
+            margin: 0 auto; 
+            color: #f2f2f7; 
+            background: #1c1c1e; 
+            min-height: 100vh; 
+            overflow-y: auto; 
+            position: relative; 
+            transition: border 0.2s, box-shadow 0.2s; 
+            border: 8px solid transparent; 
+            -webkit-overflow-scrolling: touch;
+        }
+        .control-title { font-size: clamp(18px, 4vw, 22px); font-weight: bold; margin-bottom: 15px; text-align: center; color: #fff; line-height: 1.3; }
+        .input-group { margin-bottom: 12px; }
+        label { font-size: 14px; color: #8e8e93; display: block; margin-bottom: 5px; }
+        input[type="text"] { width: 100%; padding: 12px; font-size: 16px; border-radius: 10px; border: 1px solid #38383a; background: #2c2c2e; color: #fff; }
+        textarea { width: 100%; height: 90px; font-size: 18px; padding: 12px; border-radius: 10px; border: 1px solid #38383a; background: #2c2c2e; color: #fff; resize: none; margin-bottom: 5px; }
+        .char-count { text-align: right; font-size: 12px; color: #8e8e93; margin-bottom: 10px; }
+        
+        .send-btn { width: 100%; padding: 16px; font-size: 20px; font-weight: bold; background: #30d158; color: white; border: none; border-radius: 10px; cursor: pointer; margin-bottom: 8px; }
+        .clear-btn { background: #ff453a; }
+        .status-tag { text-align: center; font-size: 13px; color: #30d158; margin-bottom: 10px; }
+
+        /* 反饋燈光效果 */
+        @keyframes flash-green {
+            0%, 100% { border-color: transparent; box-shadow: none; }
+            50% { border-color: #30d158; box-shadow: inset 0 0 20px #30d158, 0 0 20px #30d158; }
+        }
+        @keyframes flash-red {
+            0%, 100% { border-color: transparent; box-shadow: none; }
+            50% { border-color: #ff453a; box-shadow: inset 0 0 20px #ff453a, 0 0 20px #ff453a; }
+        }
+
+        .border-flash-green { animation: flash-green 0.6s ease-in-out infinite; }
+        .border-flash-red { animation: flash-red 0.6s ease-in-out infinite; }
+        .border-solid-red { border-color: #ff453a !important; box-shadow: inset 0 0 20px #ff453a, 0 0 20px #ff453a !important; }
+
+        /* 快捷詞區塊 */
+        .presets-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #38383a; padding-top: 15px; }
+        .btn-group-right { display: flex; gap: 8px; }
+        .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 25px; }
+        .preset-btn { padding: 12px; font-size: 14px; background: #2c2c2e; border: 1px solid #38383a; border-radius: 8px; color: #fff; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+        .preset-btn:active { background: #007aff; }
+        .edit-input { width: 100%; padding: 10px; font-size: 14px; background: #1c1c1e; border: 1px solid #007aff; border-radius: 8px; color: #fff; }
+        
+        .action-btn { border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        .btn-edit { background: #0a84ff; color: white; }
+        .btn-reset { background: #48484a; color: #ff9f0a; }
+
+        /* 幕僚歷史紀錄區塊 */
+        .history-section { margin-top: 25px; border-top: 1px solid #38383a; padding-top: 15px; margin-bottom: 30px; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .history-title { font-weight: bold; font-size: 15px; color: #fff; }
+        .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; }
+        .history-item { background: #2c2c2e; border: 1px solid #38383a; padding: 10px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .history-item-content { display: flex; flex-direction: column; gap: 2px; text-align: left; overflow: hidden; }
+        .history-item-sender { font-size: 12px; color: #ffd60a; font-weight: bold; }
+        .history-item-text { font-size: 14px; color: #fff; word-break: break-all; }
+        .history-item-time { font-size: 11px; color: #8e8e93; white-space: nowrap; flex-shrink: 0; }
+        .history-empty { font-size: 13px; color: #8e8e93; text-align: center; padding: 15px 0; }
+
+        /* 長官文字廣播 */
+        #chief-broadcast-modal .modal-content { max-width: 560px; width: min(92vw, 560px); }
+        .chief-broadcast-textarea { width: 100%; min-height: 150px; box-sizing: border-box; font-size: 20px; line-height: 1.5; padding: 14px; border-radius: 10px; border: 1px solid #38383a; background: #2c2c2e; color: #fff; resize: vertical; }
+        .chief-broadcast-status { margin-top: 8px; font-size: 13px; color: #8e8e93; text-align: right; }
+        #chief-broadcast-receive-modal .modal-content { max-width: 620px; width: min(94vw, 620px); }
+        .chief-broadcast-message { background: #2c2c2e; border: 1px solid #48484a; border-radius: 12px; padding: 18px; margin-top: 14px; color: #fff; font-size: clamp(20px, 4vw, 32px); line-height: 1.5; font-weight: 700; word-break: break-word; white-space: pre-wrap; text-align: left; }
+        .chief-broadcast-received { color: #30d158; font-weight: bold; margin-top: 12px; display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- 0. 強制資安注意事項：任何人進入系統後均須先同意 -->
+    <div id="security-consent-modal" role="dialog" aria-modal="true" aria-labelledby="security-consent-title">
+        <div class="security-consent-content">
+            <div class="security-consent-title" id="security-consent-title">⚠️ 資安注意事項</div>
+
+            <div class="security-consent-body">
+                <p><strong>使用前請務必閱讀以下注意事項：</strong></p>
+
+                <p>
+                    為輕量化系統成本，本測試中的系統現為無加密訊息傳送系統，
+                    任何知道10位數安全密碼的使用者皆可監聽，請妥善規劃安全密碼，
+                    使用者亦不得輸入、傳送或顯示依法應受特別保護之機敏資訊、個人資料、
+                    帳號密碼、國家機密或其他不宜公開之資訊，本系統僅提供測試使用，
+                    不連代負責使用後衍伸的責任。
+                </p>
+
+                <div class="security-consent-warning">
+                    ⚠️ 注意：按下「同意」代表您已閱讀並了解上述資安注意事項，
+                    並同意依系統規範使用本系統。
+                </div>
+            </div>
+
+            <div class="security-consent-buttons">
+                <button id="security-disagree-btn" onclick="securityDisagree()">不同意</button>
+                <button id="security-agree-btn" onclick="securityAgree()">同意</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. 選擇身份與輸入安全密碼頁面 -->
+    <div id="setup-view" class="mode-selector">
+        <h2>連江縣政府議會質詢即時提示系統<br>(行政處內測版)</h2>
+        <p>請設定本次連線安全金鑰，勿使用過度簡單之密碼。(如：0000000000、12345678910)</p>
+
+        <div class="room-box">
+            <label>🔑 頻道安全密碼</label>
+            <!-- 限制只能輸入數字且最多 10 位 -->
+            <input type="tel" id="room-key" value="" placeholder="請輸入10位數頻道安全密碼..." maxlength="10" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+        </div>
+        
+        <!-- 資安注意事項告示 -->
+        <div class="security-notice">
+            <div class="security-notice-title">⚠️ 資安再次提醒</div>
+            <div class="security-notice-text">
+                使用本系統不得輸入、傳送或顯示依法應受特別保護之機敏資訊、個人資料、帳號密碼、國家機密或其他不宜公開之資訊。
+            </div>
+        </div>
+
+        <button class="mode-btn btn-display" onclick="startDisplay()">長官（顯示端）</button>
+        <button class="mode-btn btn-control" onclick="startControl()">幕僚（控制端）</button>
+
+        <!-- 資安及版權免責聲明連結 -->
+        <div class="disclaimer-link" onclick="openDisclaimer(event)">資安及版權免責聲明</div>
+
+        <!-- 首頁 QR Code 圖片（免責聲明連結下方） -->
+        <img src="mtcc-prompt2.png" alt="QR Code" class="home-share-img">
+    </div>
+
+    <!-- 清空所有長官螢幕確認視窗 -->
+    <div id="clear-screen-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="clear-screen-confirm-title">
+        <div class="clear-screen-confirm-content">
+            <div class="clear-screen-confirm-title" id="clear-screen-confirm-title">⚠️ 確認清空長官螢幕</div>
+            <div class="clear-screen-confirm-body">
+                <p><strong>此操作將立即清除目前所有長官顯示端的提示畫面。</strong></p>
+                <p>清空後，長官螢幕將回到「等待訊息輸入...」狀態，並同步清除 MQTT Broker 上目前保留的最新提示。</p>
+                <p>此操作將記錄於「傳送訊息歷史紀錄」，以利日後查閱。</p>
+            </div>
+            <div class="clear-screen-confirm-buttons">
+                <button id="cancel-clear-screen-btn" onclick="closeClearScreenConfirm()">取消</button>
+                <button id="confirm-clear-screen-btn" onclick="confirmClearMessage()">確認清空</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 免責聲明浮動視窗 (Modal) -->
+    <div class="modal-overlay" id="disclaimer-modal" onclick="closeDisclaimer()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="close-btn" onclick="closeDisclaimer()">✕</button>
+            <div class="modal-title">免責聲明 (Disclaimer)</div>
+            <div class="modal-body">
+                <p><strong>開發目的：</strong>本系統為作者宗恆個人運用 AI 工具自行開發維運，目的是減少長官備詢中幕僚紙本遞送提示時的不佳觀感，亦可跨排數座位進行提示。</p>
+                <p><strong>資安與風險提醒：</strong>本系統未經過完整資安與系統開發規劃，使用者須自行承擔資訊安全及相關運作風險；開發者不承擔任何因使用本系統所致之損害或法律責任。</p>
+                <p><strong>開源與部署須知：</strong>本系統無版權限制，歡迎自由下載使用。請下載後另建伺服器空間部署，請勿直接使用開發者之 GitHub 環境，以避免資料混淆與資源衝突。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MQTT 連線診斷視窗 -->
+    <div id="mqtt-diagnostics-modal" class="modal-overlay" style="display:none; z-index:950;">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="mqtt-diagnostics-title" style="max-width:560px; width:min(92vw,560px);">
+            <button class="close-btn" type="button" onclick="closeMqttDiagnostics()">✕</button>
+            <div class="modal-title" id="mqtt-diagnostics-title">🔎 MQTT 連線診斷</div>
+            <div id="mqtt-diagnostics-content" style="text-align:left;line-height:1.75;font-size:14px;"></div>
+            <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+                <button class="action-btn" type="button" onclick="runMqttWebSocketTest()">重新測試 WSS</button>
+                <button class="action-btn" type="button" onclick="closeMqttDiagnostics()">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 長官文字廣播：長官端輸入視窗 -->
+    <div id="chief-broadcast-modal" class="modal-overlay" style="display:none; z-index:940;">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="chief-broadcast-title" onclick="event.stopPropagation()">
+            <button class="close-btn" type="button" onclick="closeChiefBroadcastModal()">✕</button>
+            <div class="modal-title" id="chief-broadcast-title">📢 長官文字廣播</div>
+            <div class="modal-body">
+                <p>輸入後送出，訊息將廣播給<strong>同一頻道內所有幕僚端</strong>。不會顯示在長官的質詢提示歷史紀錄。</p>
+                <textarea id="chief-broadcast-input" class="chief-broadcast-textarea" maxlength="200" placeholder="請輸入要通知幕僚的文字訊息..."></textarea>
+                <div class="chief-broadcast-status"><span id="chief-broadcast-char-count">0</span> / 200 字</div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;">
+                <button class="action-btn btn-reset" type="button" onclick="closeChiefBroadcastModal()">取消</button>
+                <button class="action-btn btn-edit" type="button" onclick="sendChiefBroadcast()">送出廣播</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 幕僚端收到長官廣播後的通知視窗 -->
+    <div id="chief-broadcast-receive-modal" class="modal-overlay" style="display:none; z-index:960;">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="chief-broadcast-receive-title" onclick="event.stopPropagation()">
+            <div class="modal-title" id="chief-broadcast-receive-title">📢 長官文字訊息</div>
+            <div class="modal-body">
+                <div style="font-size:14px;color:#8e8e93;">您所在的會議頻道收到長官廣播：</div>
+                <div id="chief-broadcast-message" class="chief-broadcast-message"></div>
+                <div id="chief-broadcast-received-status" class="chief-broadcast-received">✓ 已收到，可關閉視窗</div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;">
+                <button id="chief-broadcast-received-btn" class="action-btn btn-edit" type="button" onclick="acknowledgeChiefBroadcast()">收到</button>
+                <button id="chief-broadcast-close-btn" class="action-btn btn-reset" type="button" onclick="closeChiefBroadcastReceiveModal()" style="display:none;">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 長官顯示頁面 -->
+    <div id="display-view">
+        <div class="display-header">
+            <div id="history-counter">0/0</div>
+        </div>
+        
+        <div id="message-container">
+            <div id="sender-tag"></div>
+            <div id="message-box">等待訊息輸入...</div>
+        </div>
+
+        <!-- 長官端一般控制列 -->
+        <div class="bottom-left-controls">
+            <button class="display-ctrl-btn" id="mask-toggle-btn" onclick="toggleMask()">遮蔽OFF</button>
+            <button class="display-ctrl-btn latest-btn" onclick="jumpToLatest()">最新提示</button>
+            <button class="display-ctrl-btn feedback-btn" onclick="sendFeedback('like')" title="讚">👍</button>
+            <button class="display-ctrl-btn feedback-btn" onclick="sendFeedback('dislike')" title="倒讚">👎</button>
+            <button class="display-ctrl-btn" id="fullscreen-toggle-btn" onclick="toggleFullscreen()">全螢幕</button>
+        </div>
+
+        <!-- 長官端獨立文字廣播按鈕：避免在不同裝置／全螢幕狀態下被其他控制項遮住 -->
+        <button id="chief-broadcast-open-btn" class="chief-broadcast-open-btn" type="button" onclick="openChiefBroadcastModal()">
+            📢 文字廣播
+        </button>
+
+        <button class="nav-btn nav-left" onclick="navigateHistory(-1)">❮</button>
+        <button class="nav-btn nav-right" onclick="navigateHistory(1)">❯</button>
+    </div>
+
+    <!-- 3. 幕僚控制頁面 -->
+    <div id="control-view">
+        <div class="control-title">連江縣政府議會質詢推播控制台<br>(行政處內測版)</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;">
+            <div id="status" class="status-tag">連線驗證中...</div>
+            <button class="action-btn" type="button" onclick="openMqttDiagnostics()" style="font-size:12px;padding:6px 10px;">連線診斷</button>
+        </div>
+        
+        <div class="input-group">
+            <label>您的單位/職稱</label>
+            <input type="text" id="sender-input" placeholder="例如：行政處" value="">
+        </div>
+
+        <div class="input-group">
+            <label>提示訊息（上限 50 字）</label>
+            <textarea id="text-input" maxlength="50" oninput="updateCharCount()" placeholder="請輸入訊息..."></textarea>
+            <div class="char-count"><span id="char-num">0</span> / 50 字</div>
+        </div>
+
+        <button class="send-btn" onclick="sendMessage()">同步傳送至所有長官螢幕</button>
+        <button class="send-btn clear-btn" onclick="openClearScreenConfirm()">清空所有長官螢幕</button>
+
+        <!-- 常用 10 組快捷詞區塊 -->
+        <div class="presets-header">
+            <span style="font-weight: bold; font-size: 15px;">自訂 10 組快捷詞：</span>
+            <div class="btn-group-right">
+                <button class="action-btn btn-reset" onclick="restoreDefaultPresets()">一鍵恢復預設</button>
+                <button class="action-btn btn-edit" id="edit-preset-btn" onclick="toggleEditPresets()">編輯內容</button>
+            </div>
+        </div>
+        <div class="preset-grid" id="preset-container"></div>
+
+        <!-- 幕僚發送紀錄歷史區塊 -->
+        <div class="history-section">
+            <div class="history-header">
+                <span class="history-title">傳送訊息歷史紀錄：</span>
+                <button class="action-btn btn-reset" onclick="clearSentHistory()">清空歷史</button>
+            </div>
+            <div style="font-size:12px; color:#8a5a00; background:#fff8e6; border:1px solid #f0d58a; border-radius:6px; padding:7px 10px; margin:8px 0 10px; line-height:1.6;">
+                ⚠️ 本紀錄斷線後即清空，若有需要保存請自行擷取螢幕。
+            </div>
+            <div class="history-list" id="sent-history-container">
+                <div class="history-empty">尚無傳送紀錄</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // MQTT V2：唯一 Client ID、持續自動重連、連線逾時控制
+        // 正式環境建議將 broker.emqx.io 改為機關自有/專用 MQTT Broker。
+        const MQTT_BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
+        const MQTT_CLIENT_ID = `matsu_parliament_${crypto.randomUUID()}`;
+        const client = mqtt.connect(MQTT_BROKER_URL, {
+            clientId: MQTT_CLIENT_ID,
+            clean: true,
+            connectTimeout: 10 * 1000,
+            reconnectPeriod: 3000,
+            keepalive: 30
+        });
+
+        let DYNAMIC_TOPIC = '';
+        let mqttConnected = false;
+        let mqttSubscribed = false;
+        let mqttRole = ''; // 'display' / 'control'
+        let mqttMessageHandlerRegistered = false;
+        let mqttLastError = '尚未取得錯誤訊息';
+        let mqttLastErrorTime = '';
+        let mqttLastState = '尚未啟動 MQTT 連線';
+
+        // 長官端歷史紀錄與遮蔽狀態
+        let historyList = []; 
+        let currentIndex = -1;
+        let isMasked = false;
+
+        // 幕僚端發送紀錄與冷卻狀態
+        let sentHistory = [];
+        let isCoolingDown = false;
+
+        // 系統預設 10 組標準快捷詞
+        const systemDefaultPresets = [
+            "已交辦權責局處辦理",
+            "預算已於本期編列",
+            "預計今年底前完成",
+            "會後提供書面資料",
+            "研議研擬方案辦理",
+            "積極向中央爭取補助",
+            "感謝議員關心與指教",
+            "配合中央法規推動",
+            "本案刻正進行規劃",
+            "相關數據會後補充"
+        ];
+
+        let myPresets = [...systemDefaultPresets];
+        let isEditing = false;
+        let feedbackTimer = null; // 控制端燈光計時器
+
+        /* --- 強制資安注意事項同意機制 --- */
+        let securityConsentGiven = false;
+
+        function securityAgree() {
+            securityConsentGiven = true;
+            const modal = document.getElementById('security-consent-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function securityDisagree() {
+            securityConsentGiven = false;
+            alert('您選擇不同意資安注意事項，因此無法繼續使用本系統。');
+            // 視窗保持開啟，不允許進入任何系統功能。
+            const modal = document.getElementById('security-consent-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        // 防止未同意前以其他方式啟動系統功能
+        function requireSecurityConsent() {
+            if (!securityConsentGiven) {
+                const modal = document.getElementById('security-consent-modal');
+                if (modal) modal.style.display = 'flex';
+                alert('請先閱讀並同意「資安注意事項」後，才能使用本系統。');
+                return false;
+            }
+            return true;
+        }
+
+
+        // 強制資安視窗不可透過 ESC 關閉
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !securityConsentGiven) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        }, true);
+
+        // 若有人嘗試從開發者工具或其他程式隱藏視窗，未同意前重新顯示。
+        document.addEventListener('visibilitychange', () => {
+            if (!securityConsentGiven) {
+                const modal = document.getElementById('security-consent-modal');
+                if (modal) modal.style.display = 'flex';
+            }
+        });
+
+        /* --- 免責聲明視窗控制 --- */
+        function openDisclaimer(event) {
+            if (event) event.stopPropagation();
+            document.getElementById('disclaimer-modal').style.display = 'flex';
+        }
+
+        function closeDisclaimer() {
+            document.getElementById('disclaimer-modal').style.display = 'none';
+        }
+
+        /* --- 頻道安全密碼驗證邏輯 --- */
+        function getSecureTopic() {
+            const keyInput = document.getElementById('room-key').value.trim();
+            
+            // 1. 檢查是否空白
+            if (!keyInput) {
+                alert("請輸入10位數頻道安全密碼");
+                return null;
+            }
+
+            // 2. 檢查是否非數字或長度不符合 10 位數
+            if (!/^\d{10}$/.test(keyInput)) {
+                alert("頻道安全密碼只能輸入10個數字");
+                return null;
+            }
+
+            return `matsu_parliament_prompt_2026_${keyInput}`;
+        }
+
+        /* --- MQTT V2 共用連線與訊息處理 --- */
+        function setConnectionStatus(text, state = '') {
+            const status = document.getElementById('status');
+            if (!status) return;
+
+            const prefix = state === 'connected' ? '● ' :
+                           state === 'reconnecting' ? '↻ ' :
+                           state === 'offline' ? '⚠ ' :
+                           state === 'error' ? '✕ ' : '';
+            status.innerText = prefix + text;
+
+            if (state === 'connected') status.style.color = '#30d158';
+            else if (state === 'reconnecting') status.style.color = '#ffd60a';
+            else if (state === 'offline' || state === 'error') status.style.color = '#ff453a';
+            else status.style.color = '#8e8e93';
+        }
+
+        function registerMqttMessageHandler() {
+            if (mqttMessageHandlerRegistered) return;
+            mqttMessageHandlerRegistered = true;
+
+            client.on('message', (topic, payload) => {
+                if (topic !== DYNAMIC_TOPIC) return;
+
+                const rawPayload = payload.toString();
+
+                // 空 payload 只負責「刪除 Broker retained 訊息」，不再作為唯一的畫面清除指令。
+                // 真正的畫面清除由下方 type=clear_screen 的明確 MQTT 指令負責。
+                if (rawPayload === '') {
+                    return;
+                }
+
+                try {
+                    const data = JSON.parse(rawPayload);
+
+                    // 長官文字廣播：只在幕僚端顯示，不影響長官提示歷史。
+                    if (data.type === 'chief_broadcast') {
+                        if (mqttRole === 'control') {
+                            const broadcastText = data.text || '';
+                            showChiefBroadcastReceiveModal(broadcastText);
+
+                            // 長官廣播同步記錄到每一台幕僚端自己的歷史紀錄。
+                            // 此紀錄與一般「傳送訊息」共用同一歷史區，但明確標示為長官廣播。
+                            const broadcastTime = data.timestamp
+                                ? new Date(data.timestamp).toLocaleTimeString('zh-TW', { hour12: false })
+                                : getCurrentFormattedTime();
+                            sentHistory.unshift({
+                                sender: '長官廣播',
+                                text: broadcastText,
+                                time: broadcastTime
+                            });
+                            if (sentHistory.length > 20) sentHistory.pop();
+                            renderSentHistory();
+                        }
+                        return;
+                    }
+
+                    if (data.type === 'feedback') {
+                        if (mqttRole === 'control') {
+                            handleFeedbackEffect(data.action);
+                        }
+                        return;
+                    }
+
+                    if (mqttRole !== 'display') return;
+
+                    if (data.type === 'clear_screen' || data.text === '') {
+                        historyList = [];
+                        currentIndex = -1;
+                        renderDisplay('', '等待訊息輸入...');
+                        document.getElementById('history-counter').innerText = '0/0';
+                        return;
+                    }
+
+                    historyList.push(data);
+                    if (historyList.length > 10) {
+                        historyList.shift();
+                    }
+
+                    currentIndex = historyList.length - 1;
+                    updateDisplayView();
+                } catch (e) {
+                    console.error('無效 MQTT 訊息格式:', e);
+                }
+            });
+        }
+
+        async function subscribeCurrentTopic() {
+            if (!DYNAMIC_TOPIC || !mqttConnected || mqttSubscribed) return false;
+
+            return new Promise((resolve) => {
+                client.subscribe(DYNAMIC_TOPIC, { qos: 1 }, (err) => {
+                    if (err) {
+                        mqttSubscribed = false;
+                        console.error('MQTT 訂閱失敗:', err);
+                        resolve(false);
+                        return;
+                    }
+
+                    mqttSubscribed = true;
+                    console.log('MQTT 已訂閱:', DYNAMIC_TOPIC);
+                    resolve(true);
+                });
+            });
+        }
+
+        client.on('connect', async () => {
+            mqttConnected = true;
+            mqttSubscribed = false;
+            mqttLastState = 'MQTT 已建立連線';
+            mqttLastError = '';
+            mqttLastErrorTime = '';
+            console.log('MQTT 已連線，Client ID:', MQTT_CLIENT_ID);
+
+            registerMqttMessageHandler();
+
+            if (DYNAMIC_TOPIC) {
+                const ok = await subscribeCurrentTopic();
+                if (!ok) {
+                    console.error('MQTT 重新訂閱失敗');
+                }
+            }
+
+            if (mqttRole === 'control') {
+                setConnectionStatus('雲端通道已連線', 'connected');
+            }
+        });
+
+        client.on('reconnect', () => {
+            mqttConnected = false;
+            mqttSubscribed = false;
+            mqttLastState = '正在重新連線';
+            if (mqttRole === 'control') {
+                setConnectionStatus('重新連線中...', 'reconnecting');
+            }
+        });
+
+        client.on('offline', () => {
+            mqttConnected = false;
+            mqttSubscribed = false;
+            mqttLastState = 'MQTT 離線';
+            if (mqttRole === 'control') {
+                setConnectionStatus('網路斷線，等待自動重連...', 'offline');
+            }
+        });
+
+        client.on('error', (err) => {
+            console.error('MQTT Error:', err);
+            mqttLastError = err && (err.message || err.toString()) ? (err.message || err.toString()) : '未知 MQTT 錯誤';
+            mqttLastErrorTime = new Date().toLocaleString('zh-TW', { hour12: false });
+            mqttLastState = 'MQTT 發生錯誤';
+            if (mqttRole === 'control') {
+                setConnectionStatus('MQTT 連線錯誤', 'error');
+            }
+        });
+
+        client.on('close', () => {
+            mqttConnected = false;
+            mqttSubscribed = false;
+            mqttLastState = 'MQTT 連線已關閉';
+        });
+
+        function getMqttDiagnosticHtml() {
+            const online = navigator.onLine ? '🟢 瀏覽器判定 Internet 在線' : '🔴 瀏覽器判定目前離線';
+            const role = mqttRole || '尚未選擇（長官／幕僚）';
+            const subscribed = mqttSubscribed ? '🟢 已訂閱' : '⚪ 尚未訂閱';
+            const connected = mqttConnected ? '🟢 已連線' : '🔴 未連線';
+            const topic = DYNAMIC_TOPIC || '尚未輸入 10 位數頻道密碼';
+            const err = mqttLastError || '目前沒有記錄到 MQTT 錯誤訊息';
+            const errTime = mqttLastErrorTime || '—';
+            return `
+                <div style="background:#f7f7f7;color:#222;border-radius:8px;padding:12px;margin-bottom:10px;word-break:break-all;">
+                    <div><strong>Broker：</strong><code>${MQTT_BROKER_URL}</code></div>
+                    <div><strong>角色：</strong>${role}</div>
+                    <div><strong>Internet：</strong>${online}</div>
+                    <div><strong>MQTT：</strong>${connected}</div>
+                    <div><strong>Topic 訂閱：</strong>${subscribed}</div>
+                    <div><strong>目前狀態：</strong>${mqttLastState}</div>
+                </div>
+                <div style="background:#fff8e6;color:#222;border:1px solid #f0d58a;border-radius:8px;padding:12px;margin-bottom:10px;word-break:break-word;">
+                    <div><strong>最近錯誤：</strong>${err}</div>
+                    <div><strong>錯誤時間：</strong>${errTime}</div>
+                </div>
+                <div style="font-size:13px;color:#555;">
+                    <strong>判讀方式：</strong><br>
+                    ① Internet 在線但 MQTT 失敗：可能是目前網路、Proxy 或防火牆限制 WSS。<br>
+                    ② 手機熱點可連、其他外網不可連：優先比較兩個網路對 WebSocket/WSS 的限制。<br>
+                    ③ 若 WSS 測試成功但 MQTT 仍失敗：再檢查 Broker、Topic 或程式連線狀態。<br>
+                    <strong>目前頻道：</strong><code>${topic}</code>
+                </div>`;
+        }
+
+        function openMqttDiagnostics() {
+            if (!requireSecurityConsent()) return;
+            const modal = document.getElementById('mqtt-diagnostics-modal');
+            const content = document.getElementById('mqtt-diagnostics-content');
+            if (content) content.innerHTML = getMqttDiagnosticHtml();
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeMqttDiagnostics() {
+            const modal = document.getElementById('mqtt-diagnostics-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function runMqttWebSocketTest() {
+            if (!requireSecurityConsent()) return;
+            const content = document.getElementById('mqtt-diagnostics-content');
+            if (!content) return;
+            content.innerHTML = '<div style="padding:12px;color:#222;background:#f7f7f7;border-radius:8px;">⏳ 正在測試 WSS，最多等待 8 秒…</div>';
+
+            let done = false;
+            let ws = null;
+            let timer = null;
+            const finish = (html) => {
+                if (done) return;
+                done = true;
+                if (timer) clearTimeout(timer);
+                try { if (ws) ws.close(); } catch (e) {}
+                content.innerHTML = html + '<div style="margin-top:12px;">' + getMqttDiagnosticHtml() + '</div>';
+            };
+
+            try {
+                ws = new WebSocket(MQTT_BROKER_URL, ['mqtt']);
+                timer = setTimeout(() => {
+                    finish('<div style="background:#ffecec;color:#222;border:1px solid #ffb4b4;border-radius:8px;padding:12px;">🔴 <strong>WSS 測試逾時</strong><br>這台電腦可能無法建立至 MQTT Broker 的 WebSocket Secure 連線。</div>');
+                }, 8000);
+                ws.onopen = () => {
+                    finish('<div style="background:#ecfff0;color:#222;border:1px solid #a9dfb2;border-radius:8px;padding:12px;">🟢 <strong>WSS 測試成功</strong><br>瀏覽器可以建立 WebSocket 連線。若系統仍失敗，請查看「最近錯誤」。</div>');
+                };
+                ws.onerror = () => {
+                    mqttLastError = '瀏覽器 WebSocket 測試失敗；瀏覽器通常不會提供更細的網路錯誤原因。';
+                    mqttLastErrorTime = new Date().toLocaleString('zh-TW', { hour12: false });
+                    finish('<div style="background:#ffecec;color:#222;border:1px solid #ffb4b4;border-radius:8px;padding:12px;">🔴 <strong>WSS 測試失敗</strong><br>高度懷疑目前網路、Proxy 或防火牆無法連線到 MQTT Broker。</div>');
+                };
+                ws.onclose = () => {};
+            } catch (e) {
+                finish('<div style="background:#ffecec;color:#222;border:1px solid #ffb4b4;border-radius:8px;padding:12px;">🔴 <strong>WSS 測試無法啟動</strong><br>' + String(e.message || e) + '</div>');
+            }
+        }
+
+        /* --- 長官文字廣播 --- */
+        function openChiefBroadcastModal() {
+            if (!requireSecurityConsent()) return;
+            if (mqttRole !== 'display') return;
+            if (!DYNAMIC_TOPIC || !mqttConnected || !mqttSubscribed) {
+                alert('目前 MQTT 尚未連線完成，無法發送長官文字廣播。');
+                return;
+            }
+            const modal = document.getElementById('chief-broadcast-modal');
+            const input = document.getElementById('chief-broadcast-input');
+            if (modal) modal.style.display = 'flex';
+            if (input) {
+                input.value = '';
+                document.getElementById('chief-broadcast-char-count').innerText = '0';
+                setTimeout(() => input.focus(), 50);
+            }
+        }
+
+        function closeChiefBroadcastModal() {
+            const modal = document.getElementById('chief-broadcast-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function sendChiefBroadcast() {
+            const input = document.getElementById('chief-broadcast-input');
+            const text = input ? input.value.trim() : '';
+            if (!text) {
+                alert('請輸入要廣播給幕僚的文字訊息。');
+                return;
+            }
+            if (!DYNAMIC_TOPIC || !mqttConnected || !mqttSubscribed) {
+                alert('目前 MQTT 尚未連線完成，無法發送長官文字廣播。');
+                return;
+            }
+
+            const payload = JSON.stringify({
+                type: 'chief_broadcast',
+                sender: '長官',
+                text: text,
+                timestamp: Date.now()
+            });
+
+            client.publish(DYNAMIC_TOPIC, payload, { qos: 1, retain: false }, (err) => {
+                if (err) {
+                    console.error('長官文字廣播發送失敗:', err);
+                    alert('文字廣播發送失敗，請確認 MQTT 連線後再試。');
+                    return;
+                }
+                closeChiefBroadcastModal();
+            });
+        }
+
+        function showChiefBroadcastReceiveModal(text) {
+            const message = document.getElementById('chief-broadcast-message');
+            const receivedBtn = document.getElementById('chief-broadcast-received-btn');
+            const closeBtn = document.getElementById('chief-broadcast-close-btn');
+            const receivedStatus = document.getElementById('chief-broadcast-received-status');
+            if (message) message.textContent = text;
+            if (receivedBtn) {
+                receivedBtn.style.display = 'inline-block';
+                receivedBtn.innerText = '收到';
+            }
+            if (closeBtn) closeBtn.style.display = 'none';
+            if (receivedStatus) receivedStatus.style.display = 'none';
+            const modal = document.getElementById('chief-broadcast-receive-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function acknowledgeChiefBroadcast() {
+            const receivedBtn = document.getElementById('chief-broadcast-received-btn');
+            const closeBtn = document.getElementById('chief-broadcast-close-btn');
+            const receivedStatus = document.getElementById('chief-broadcast-received-status');
+            if (receivedBtn) receivedBtn.style.display = 'none';
+            if (closeBtn) closeBtn.style.display = 'inline-block';
+            if (receivedStatus) receivedStatus.style.display = 'block';
+        }
+
+        function closeChiefBroadcastReceiveModal() {
+            const modal = document.getElementById('chief-broadcast-receive-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        /* --- 長官端邏輯 --- */
+        function startDisplay() {
+            if (!requireSecurityConsent()) return;
+
+            DYNAMIC_TOPIC = getSecureTopic();
+            if (!DYNAMIC_TOPIC) return;
+
+            mqttRole = 'display';
+
+            document.getElementById('setup-view').style.display = 'none';
+            document.getElementById('display-view').style.display = 'flex';
+
+            registerMqttMessageHandler();
+
+            // 若 MQTT 尚未連線，connect 事件會自動訂閱；已連線則立即訂閱
+            subscribeCurrentTopic();
+
+            setupTouchEvents();
+        }
+
+        function sendFeedback(type) {
+            if (DYNAMIC_TOPIC) {
+                const payload = JSON.stringify({ type: 'feedback', action: type });
+                client.publish(DYNAMIC_TOPIC, payload, { qos: 1, retain: false });
+            }
+        }
+
+        /* --- 全螢幕切換邏輯 --- */
+        function toggleFullscreen() {
+            const btn = document.getElementById('fullscreen-toggle-btn');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    btn.innerText = '恢復視窗化';
+                }).catch(err => {
+                    console.error("無法切換至全螢幕模式:", err);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().then(() => {
+                        btn.innerText = '全螢幕';
+                    });
+                }
+            }
+        }
+
+        // 監聽手動退出全螢幕（例如按 ESC 鍵）同步更新按鈕文字
+        document.addEventListener('fullscreenchange', () => {
+            const btn = document.getElementById('fullscreen-toggle-btn');
+            if (!document.fullscreenElement) {
+                btn.innerText = '全螢幕';
+            } else {
+                btn.innerText = '恢復視窗化';
+            }
+        });
+
+        function toggleMask() {
+            isMasked = !isMasked;
+            const maskBtn = document.getElementById('mask-toggle-btn');
+
+            if (isMasked) {
+                maskBtn.innerText = '遮蔽ON';
+                maskBtn.classList.add('active-mask');
+            } else {
+                maskBtn.innerText = '遮蔽OFF';
+                maskBtn.classList.remove('active-mask');
+            }
+
+            updateDisplayView();
+        }
+
+        function jumpToLatest() {
+            if (historyList.length > 0) {
+                currentIndex = historyList.length - 1;
+                updateDisplayView();
+            }
+        }
+
+        function updateDisplayView() {
+            if (currentIndex >= 0 && currentIndex < historyList.length) {
+                const item = historyList[currentIndex];
+                renderDisplay(item.sender, item.text);
+                document.getElementById('history-counter').innerText = `${currentIndex + 1}/${historyList.length}`;
+            } else if (historyList.length === 0) {
+                renderDisplay('', '等待訊息輸入...');
+            }
+        }
+
+        function renderDisplay(sender, text) {
+            const messageBox = document.getElementById('message-box');
+            const senderTag = document.getElementById('sender-tag');
+            
+            senderTag.innerText = sender ? `【${sender}】` : '';
+            
+            if (isMasked) {
+                messageBox.innerText = '遮蔽中';
+                messageBox.classList.add('masked-state');
+            } else {
+                messageBox.innerText = text;
+                messageBox.classList.remove('masked-state');
+                adjustFontSize(text ? text.length : 0);
+            }
+        }
+
+        function navigateHistory(direction) {
+            if (historyList.length === 0) return;
+            let newIndex = currentIndex + direction;
+            if (newIndex >= 0 && newIndex < historyList.length) {
+                currentIndex = newIndex;
+                updateDisplayView();
+            }
+        }
+
+        let touchStartX = 0;
+        function setupTouchEvents() {
+            const displayView = document.getElementById('display-view');
+            displayView.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; });
+            displayView.addEventListener('touchend', e => {
+                let touchEndX = e.changedTouches[0].screenX;
+                if (touchStartX - touchEndX > 50) navigateHistory(1);
+                if (touchEndX - touchStartX > 50) navigateHistory(-1);
+            });
+        }
+
+        function adjustFontSize(length) {
+            const box = document.getElementById('message-box');
+            if (length === 0 || isMasked) return;
+            
+            if (length <= 6) {
+                box.style.fontSize = '18vw';
+            } else if (length <= 12) {
+                box.style.fontSize = '13vw';
+            } else if (length <= 20) {
+                box.style.fontSize = '9.5vw';
+            } else if (length <= 35) {
+                box.style.fontSize = '6.8vw';
+            } else {
+                box.style.fontSize = '5.2vw';
+            }
+        }
+
+        /* --- 幕僚控制端邏輯 --- */
+        function startControl() {
+            if (!requireSecurityConsent()) return;
+
+            DYNAMIC_TOPIC = getSecureTopic();
+            if (!DYNAMIC_TOPIC) return;
+
+            mqttRole = 'control';
+
+            document.getElementById('setup-view').style.display = 'none';
+            document.getElementById('control-view').style.display = 'block';
+
+            setConnectionStatus(
+                mqttConnected ? '雲端通道已連線' : '連線驗證中...',
+                mqttConnected ? 'connected' : ''
+            );
+
+            registerMqttMessageHandler();
+            subscribeCurrentTopic();
+
+            loadPresetsFromStorage();
+            renderPresets();
+            renderSentHistory();
+        }
+
+        function handleFeedbackEffect(action) {
+            const ctrlView = document.getElementById('control-view');
+            
+            if (feedbackTimer) clearTimeout(feedbackTimer);
+            ctrlView.classList.remove('border-flash-green', 'border-flash-red', 'border-solid-red');
+
+            if (action === 'like') {
+                ctrlView.classList.add('border-flash-green');
+                feedbackTimer = setTimeout(() => {
+                    ctrlView.classList.remove('border-flash-green');
+                }, 3000);
+            } else if (action === 'dislike') {
+                ctrlView.classList.add('border-flash-red');
+                feedbackTimer = setTimeout(() => {
+                    ctrlView.classList.remove('border-flash-red');
+                    ctrlView.classList.add('border-solid-red');
+                    
+                    feedbackTimer = setTimeout(() => {
+                        ctrlView.classList.remove('border-solid-red');
+                    }, 10000);
+                }, 3000);
+            }
+        }
+
+        function updateCharCount() {
+            const text = document.getElementById('text-input').value;
+            document.getElementById('char-num').innerText = text.length;
+        }
+
+        document.addEventListener('input', (event) => {
+            if (event.target && event.target.id === 'chief-broadcast-input') {
+                const counter = document.getElementById('chief-broadcast-char-count');
+                if (counter) counter.innerText = event.target.value.length;
+            }
+        });
+
+        function getCurrentFormattedTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+
+        function sendMessage() {
+            // 防刷機制檢查
+            if (isCoolingDown) {
+                alert("發送太頻繁，請等待 2 秒後再試！");
+                return;
+            }
+
+            const sender = document.getElementById('sender-input').value.trim();
+            const text = document.getElementById('text-input').value.trim();
+
+            if (!sender) {
+                alert("您的單位/職稱為空白");
+                return;
+            }
+
+            if (!text) {
+                alert("您的提示訊息為空白");
+                return;
+            }
+
+            if (DYNAMIC_TOPIC) {
+                const payload = JSON.stringify({ sender: sender, text: text });
+                if (!mqttConnected || !mqttSubscribed) {
+                    alert("目前 MQTT 尚未連線完成，訊息尚未傳送，請確認網路連線後再試！");
+                    return;
+                }
+
+                client.publish(DYNAMIC_TOPIC, payload, {
+                    qos: 1,
+                    retain: true
+                }, (err) => {
+                    if (err) {
+                        console.error('MQTT 發送失敗:', err);
+                        setConnectionStatus('訊息傳送失敗', 'error');
+                    }
+                });
+
+                // 啟動 2 秒防刷冷卻
+                isCoolingDown = true;
+                setTimeout(() => {
+                    isCoolingDown = false;
+                }, 2000);
+
+                // 記錄發送歷史
+                const timeStr = getCurrentFormattedTime();
+                sentHistory.unshift({ sender, text, time: timeStr });
+                if (sentHistory.length > 20) sentHistory.pop();
+                renderSentHistory();
+            }
+        }
+
+        function renderSentHistory() {
+            const container = document.getElementById('sent-history-container');
+            if (!container) return;
+
+            if (sentHistory.length === 0) {
+                container.innerHTML = `<div class="history-empty">尚無傳送紀錄</div>`;
+                return;
+            }
+
+            container.innerHTML = sentHistory.map(item => `
+                <div class="history-item">
+                    <div class="history-item-content">
+                        <span class="history-item-sender">【${item.sender.replace(/</g, '&lt;')}】</span>
+                        <span class="history-item-text">${item.text.replace(/</g, '&lt;')}</span>
+                    </div>
+                    <span class="history-item-time">${item.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function clearSentHistory() {
+            if (sentHistory.length === 0) return;
+            if (confirm("確定要清空過往發送紀錄嗎？")) {
+                sentHistory = [];
+                renderSentHistory();
+            }
+        }
+
+        function sendPresetByIndex(index) {
+            const text = myPresets[index];
+            if (text) {
+                // 快捷詞只帶入幕僚端輸入框，不自動傳送；
+                // 仍須由幕僚人員確認後按「同步傳送至所有長官螢幕」。
+                document.getElementById('text-input').value = text;
+                updateCharCount();
+                document.getElementById('text-input').focus();
+            }
+        }
+
+        function openClearScreenConfirm() {
+            if (!requireSecurityConsent()) return;
+
+            const modal = document.getElementById('clear-screen-confirm-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function closeClearScreenConfirm() {
+            const modal = document.getElementById('clear-screen-confirm-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function confirmClearMessage() {
+            closeClearScreenConfirm();
+
+            // 清空控制端輸入框，但真正的「長官畫面清除」以 MQTT retained message 清除為準。
+            document.getElementById('text-input').value = '';
+            updateCharCount();
+
+            if (!DYNAMIC_TOPIC || !mqttConnected || !mqttSubscribed) {
+                alert("目前 MQTT 尚未連線完成，無法執行清空長官螢幕。請確認網路連線後再試！");
+                setConnectionStatus('清空失敗：MQTT 尚未連線', 'error');
+                return;
+            }
+
+            // 第一階段：送出「明確的清空指令」。
+            // 使用 retain=true，確保長官端若正在重新連線，也會收到最新的清空狀態。
+            const clearCommand = JSON.stringify({
+                type: 'clear_screen',
+                sender: '系統操作',
+                text: '',
+                timestamp: Date.now()
+            });
+
+            client.publish(DYNAMIC_TOPIC, clearCommand, {
+                qos: 1,
+                retain: true
+            }, (err) => {
+                if (err) {
+                    console.error('MQTT 發送清空指令失敗:', err);
+                    setConnectionStatus('清空長官螢幕失敗', 'error');
+                    alert("清空長官螢幕失敗，請確認網路連線後再試！");
+                    return;
+                }
+
+                // 第二階段：再用空 retained payload 移除 Broker 上的清空指令，
+                // 避免下一次新訊息前，Broker 長期保留 clear_screen。
+                client.publish(DYNAMIC_TOPIC, '', {
+                    qos: 1,
+                    retain: true
+                }, (clearErr) => {
+                    if (clearErr) {
+                        console.error('MQTT 移除 retained 清空狀態失敗:', clearErr);
+                        // 即使 Broker 清除 retained 失敗，長官目前畫面已經收到 clear_screen 並清除，
+                        // 因此仍記錄本次清空操作，但提示 retained 狀態可能需要再處理。
+                        setConnectionStatus('畫面已清空，但 Broker retained 清除失敗', 'error');
+                    } else {
+                        setConnectionStatus('已清空所有長官螢幕', 'connected');
+                    }
+
+                    // 將「清空」視為一筆系統操作，寫入傳送訊息歷史紀錄。
+                    const timeStr = getCurrentFormattedTime();
+                    const sender = document.getElementById('sender-input').value.trim() || '未填寫單位/職稱';
+
+                    sentHistory.unshift({
+                        sender: sender,
+                        text: '【系統操作】清空所有長官螢幕',
+                        time: timeStr
+                    });
+
+                    if (sentHistory.length > 20) sentHistory.pop();
+                    renderSentHistory();
+                });
+            });
+        }
+
+
+        // 清空確認視窗開啟時，ESC 可視為取消，不會執行清空。
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+            const clearModal = document.getElementById('clear-screen-confirm-modal');
+            const broadcastModal = document.getElementById('chief-broadcast-modal');
+            if (clearModal && clearModal.style.display === 'flex') {
+                event.preventDefault();
+                closeClearScreenConfirm();
+                return;
+            }
+            if (broadcastModal && broadcastModal.style.display === 'flex') {
+                event.preventDefault();
+                closeChiefBroadcastModal();
+            }
+        });
+
+        /* --- 快捷詞讀取與管理 --- */
+        function loadPresetsFromStorage() {
+            const saved = localStorage.getItem('matsu_parliament_presets_v2');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length === 10) {
+                        myPresets = parsed;
+                    }
+                } catch(e) {
+                    console.error("記憶庫讀取異常");
+                }
+            }
+        }
+
+        function renderPresets() {
+            const container = document.getElementById('preset-container');
+            container.innerHTML = '';
+
+            myPresets.forEach((presetText, index) => {
+                if (isEditing) {
+                    container.innerHTML += `
+                        <input type="text" class="edit-input" id="preset-input-${index}" value="${presetText.replace(/"/g, '&quot;')}" placeholder="快捷詞 ${index + 1}">
+                    `;
+                } else {
+                    const safeText = presetText.replace(/"/g, '&quot;').replace(/'/g, "&#39;");
+                    container.innerHTML += `
+                        <button class="preset-btn" onclick="sendPresetByIndex(${index})">${index + 1}. ${safeText}</button>
+                    `;
+                }
+            });
+        }
+
+        function toggleEditPresets() {
+            const editBtn = document.getElementById('edit-preset-btn');
+            
+            if (!isEditing) {
+                isEditing = true;
+                editBtn.innerText = '儲存快捷詞';
+                editBtn.style.background = '#30d158';
+                renderPresets();
+            } else {
+                for (let i = 0; i < 10; i++) {
+                    const inputEl = document.getElementById(`preset-input-${i}`);
+                    if (inputEl) {
+                        myPresets[i] = inputEl.value.trim() || `快捷詞 ${i + 1}`;
+                    }
+                }
+                
+                localStorage.setItem('matsu_parliament_presets_v2', JSON.stringify(myPresets));
+                
+                isEditing = false;
+                editBtn.innerText = '編輯內容';
+                editBtn.style.background = '#0a84ff';
+                renderPresets();
+            }
+        }
+
+        function restoreDefaultPresets() {
+            if (confirm("確定要將 10 組快捷詞還原為系統預設值嗎？")) {
+                myPresets = [...systemDefaultPresets];
+                localStorage.setItem('matsu_parliament_presets_v2', JSON.stringify(myPresets));
+                if (isEditing) {
+                    isEditing = false;
+                    document.getElementById('edit-preset-btn').innerText = '編輯內容';
+                    document.getElementById('edit-preset-btn').style.background = '#0a84ff';
+                }
+                renderPresets();
+            }
+        }
+    </script>
+</body>
+</html>
